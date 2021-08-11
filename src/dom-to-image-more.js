@@ -1,4 +1,4 @@
-(function(global) {
+(function(window) {
     'use strict';
 
     var util = newUtil();
@@ -37,13 +37,16 @@
     if (typeof exports === "object" && typeof module === "object")
         module.exports = domtoimage;
     else
-        global.domtoimage = domtoimage;
+        window.domtoimage = domtoimage;
 
     /**
      * @param {Node} node - The DOM Node object to render
      * @param {Object} options - Rendering options
      * @param {Function} options.filter - Should return true if passed node should be included in the output
      *          (excluding node means excluding it's children as well). Not called on the root node.
+     * @param {Function} options.onclone - Callback function which is called when the Document has been cloned for
+     *         rendering, can be used to modify the contents that will be rendered without affecting the original
+     *         source document.
      * @param {String} options.bgcolor - color for the background, any valid CSS color value.
      * @param {Number} options.width - width to be applied to node before rendering.
      * @param {Number} options.height - height to be applied to node before rendering.
@@ -82,7 +85,15 @@
                     clone.style[property] = options.style[property];
                 });
 
-            return clone;
+            var onCloneResult = null;
+
+            if (typeof options.onclone === "function")
+                onCloneResult = options.onclone(clone);
+
+            return Promise.resolve(onCloneResult)
+                .then(function () {
+                    return clone;
+                });
         }
     }
 
@@ -258,7 +269,24 @@
                 });
 
             function cloneStyle() {
-                copyStyle(window.getComputedStyle(original), clone.style);
+                copyStyle(getUserComputedStyle(original, root), clone.style);
+
+                function copyFont(source, target) {
+                    target.font = source.font;
+                    target.fontFamily = source.fontFamily;
+                    target.fontFeatureSettings = source.fontFeatureSettings;
+                    target.fontKerning = source.fontKerning;
+                    target.fontSize = source.fontSize;
+                    target.fontStretch = source.fontStretch;
+                    target.fontStyle = source.fontStyle;
+                    target.fontVariant = source.fontVariant;
+                    target.fontVariantCaps = source.fontVariantCaps;
+                    target.fontVariantEastAsian = source.fontVariantEastAsian;
+                    target.fontVariantLigatures = source.fontVariantLigatures;
+                    target.fontVariantNumeric = source.fontVariantNumeric;
+                    target.fontVariationSettings = source.fontVariationSettings;
+                    target.fontWeight = source.fontWeight;
+                }
 
                 function copyStyle(source, target) {
                     if (source.cssText) {
@@ -277,6 +305,16 @@
                                 source.getPropertyPriority(name)
                             );
                         });
+                        
+                        // Remove positioning of root elements, which stops them from being captured correctly
+                        if (root) {
+                            ['inset-block', 'inset-block-start', 'inset-block-end'].forEach((prop) => target.removeProperty(prop));
+                            ['left', 'right', 'top', 'bottom'].forEach((prop) => {
+                                if (target.getPropertyValue(prop)) {
+                                    target.setProperty(prop, '0px');
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -601,7 +639,7 @@
         }
 
         function escapeXhtml(string) {
-            return string.replace(/#/g, '%23').replace(/\n/g, '%0A');
+            return string.replace(/%/g, "%25").replace(/#/g, '%23').replace(/\n/g, '%0A');
         }
 
         function width(node) {
@@ -837,7 +875,7 @@
             function getCssRules(styleSheets) {
                 var cssRules = [];
                 styleSheets.forEach(function(sheet) {
-                    if (sheet.cssRules && typeof sheet.cssRules === 'object') {
+                    if (Object.getPrototypeOf(sheet).hasOwnProperty("cssRules")) {
                         try {
                             util.asArray(sheet.cssRules || []).forEach(cssRules.push.bind(cssRules));
                         } catch (e) {
@@ -884,7 +922,7 @@
                         return util.dataAsUrl(data, util.mimeType(element.src));
                     })
                     .then(function(dataUrl) {
-                        return new Promise(function(resolve, reject) {
+                        return new Promise(function(resolve) {
                             element.onload = resolve;
                             // for any image with invalid src(such as <img src />), just ignore it
                             element.onerror = resolve;
@@ -927,5 +965,30 @@
                     });
             }
         }
+    }
+
+    function getUserComputedStyle(element, root) {
+        var computedStyles = window.getComputedStyle(element);
+        var inlineStyles = element.style;
+
+        for (var i = 0; i < computedStyles.length; i++) {
+            var key = computedStyles[i];
+            var value = computedStyles.getPropertyValue(key);
+            var inlineValue = inlineStyles.getPropertyValue(key);
+
+            if (!inlineValue.length) {
+                inlineStyles.setProperty(key, root ? 'initial' : 'unset');
+
+                var initialValue = computedStyles.getPropertyValue(key);
+
+                if (initialValue !== value) {
+                    inlineStyles.setProperty(key, value);
+                } else {
+                    inlineStyles.removeProperty(key);
+                }
+            }
+        }
+
+        return inlineStyles;
     }
 })(this);
