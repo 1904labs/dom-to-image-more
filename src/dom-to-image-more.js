@@ -51,6 +51,7 @@
      * @param {Object} options.style - an object whose properties to be copied to node's style before rendering.
      * @param {Number} options.quality - a Number between 0 and 1 indicating image quality (applicable to JPEG only),
                 defaults to 1.0.
+     * @param {Booolean} options.raster - Used internally to track whether the output is a raster image not requiring CSS reduction.
      * @param {Number} options.scale - a Number multiplier to scale up the canvas before rendering to reduce fuzzy images, defaults to 1.0.
      * @param {String} options.imagePlaceholder - dataURL to use as a placeholder for failed images, default behaviour is to fail fast on images we can't fetch
      * @param {Boolean} options.cacheBust - set to true to cache bust by appending the time to the request url
@@ -61,7 +62,8 @@
         copyOptions(options);
         return Promise.resolve(node)
             .then(function(clonee) {
-                return cloneNode(clonee, options.filter, true, true);
+                const root = true;
+                return cloneNode(clonee, options.filter, root, !options.raster);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -101,7 +103,9 @@
      * @return {Promise} - A promise that is fulfilled with a Uint8Array containing RGBA pixel data.
      * */
     function toPixelData(node, options) {
-        return draw(node, options || {})
+        options = options || {};
+        options.raster = true;
+        return draw(node, options)
             .then(function(canvas) {
                 return canvas.getContext('2d').getImageData(
                     0,
@@ -118,7 +122,9 @@
      * @return {Promise} - A promise that is fulfilled with a PNG image data URL
      * */
     function toPng(node, options) {
-        return draw(node, options || {})
+        options = options || {};
+        options.raster = true;
+        return draw(node, options)
             .then(function(canvas) {
                 return canvas.toDataURL();
             });
@@ -131,6 +137,7 @@
      * */
     function toJpeg(node, options) {
         options = options || {};
+        options.raster = true;
         return draw(node, options)
             .then(function(canvas) {
                 return canvas.toDataURL('image/jpeg', options.quality || 1.0);
@@ -143,7 +150,9 @@
      * @return {Promise} - A promise that is fulfilled with a PNG image blob
      * */
     function toBlob(node, options) {
-        return draw(node, options || {})
+        options = options || {};
+        options.raster = true;
+        return draw(node, options)
             .then(util.canvasToBlob);
     }
 
