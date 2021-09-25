@@ -61,7 +61,7 @@
         copyOptions(options);
         return Promise.resolve(node)
             .then(function(clonee) {
-                return cloneNode(clonee, options.filter, true);
+                return cloneNode(clonee, options.filter, true, true);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -207,7 +207,7 @@
         }
     }
 
-    function cloneNode(node, filter, root) {
+    function cloneNode(node, filter, root, svg) {
         if (!root && filter && !filter(node)) return Promise.resolve();
 
         return Promise.resolve(node)
@@ -216,7 +216,7 @@
                 return cloneChildren(node, clone);
             })
             .then(function(clone) {
-                return processClone(node, clone);
+                return processClone(node, clone, svg);
             });
 
         function makeNodeCopy(original) {
@@ -254,7 +254,7 @@
             }
         }
 
-        function processClone(original, clone) {
+        function processClone(original, clone, svg) {
             if (!(clone instanceof Element)) return clone;
 
             return Promise.resolve()
@@ -267,7 +267,11 @@
                 });
 
             function cloneStyle() {
-                copyStyle(getUserComputedStyle(original, root), clone.style);
+                if (svg) {
+                    copyStyle(getUserComputedStyle(original, root), clone.style);
+                } else {
+                    copyStyle(global.getComputedStyle(original), clone.style);
+                }
 
                 function copyFont(source, target) {
                     target.font = source.font;
@@ -300,7 +304,7 @@
                                 from.getPropertyPriority(name)
                             );
                         });
-                        
+
                         // Remove positioning of root elements, which stops them from being captured correctly
                         if (root) {
                             ['inset-block', 'inset-block-start', 'inset-block-end'].forEach((prop) => target.removeProperty(prop));
