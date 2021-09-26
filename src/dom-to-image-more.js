@@ -216,7 +216,7 @@
         }
     }
 
-    function cloneNode(node, filter, root, svg) {
+    function cloneNode(node, filter, root, vector) {
         if (!root && filter && !filter(node)) return Promise.resolve();
 
         return Promise.resolve(node)
@@ -225,7 +225,7 @@
                 return cloneChildren(node, clone);
             })
             .then(function(clone) {
-                return processClone(node, clone, svg);
+                return processClone(node, clone, vector);
             });
 
         function makeNodeCopy(original) {
@@ -253,7 +253,7 @@
                 childs.forEach(function(child) {
                     done = done
                         .then(function() {
-                            return cloneNode(child, filter);
+                            return cloneNode(child, filter, vector);
                         })
                         .then(function(childClone) {
                             if (childClone) parent.appendChild(childClone);
@@ -263,7 +263,7 @@
             }
         }
 
-        function processClone(original, clone, svg) {
+        function processClone(original, clone, vector) {
             if (!(clone instanceof Element)) return clone;
 
             return Promise.resolve()
@@ -276,7 +276,7 @@
                 });
 
             function cloneStyle() {
-                if (svg) {
+                if (vector) {
                     copyStyle(getUserComputedStyle(original, root), clone.style);
                 } else {
                     copyStyle(global.getComputedStyle(original), clone.style);
@@ -841,27 +841,28 @@
                         );
                 });
 
-            function inlineBackground(backgroudNode) {
-                var background = backgroudNode.style.getPropertyValue('background');
+            function inlineBackground(backgroundNode) {
+                var background = backgroundNode.style.getPropertyValue('background');
 
-                if (!background) return Promise.resolve(backgroudNode);
+                if (!background) return Promise.resolve(backgroundNode);
 
                 return inliner.inlineAll(background)
                     .then(function(inlined) {
-                        backgroudNode.style.setProperty(
+                        backgroundNode.style.setProperty(
                             'background',
                             inlined,
-                            backgroud
+                            background
                         );
                     })
                     .then(function() {
-                        return backgroudNode;
+                        return backgroundNode;
                     });
             }
         }
     }
 
     function getUserComputedStyle(element, root) {
+        var clonedStyle = document.createElement(element.tagName).style;
         var computedStyles = window.getComputedStyle(element);
         var inlineStyles = element.style;
 
@@ -870,19 +871,18 @@
             var value = computedStyles.getPropertyValue(key);
             var inlineValue = inlineStyles.getPropertyValue(key);
 
-            if (!inlineValue.length) {
-                inlineStyles.setProperty(key, root ? 'initial' : 'unset');
+            inlineStyles.setProperty(key, root ? 'initial' : 'unset');
+            var initialValue = computedStyles.getPropertyValue(key);
 
-                var initialValue = computedStyles.getPropertyValue(key);
-
-                if (initialValue !== value) {
-                    inlineStyles.setProperty(key, value);
-                } else {
-                    inlineStyles.removeProperty(key);
-                }
+            if (initialValue !== value) {
+                clonedStyle.setProperty(key, value);
+            } else {
+                clonedStyle.removeProperty(key);
             }
+
+            inlineStyles.setProperty(key, inlineValue);
         }
 
-        return inlineStyles;
+        return clonedStyle;
     }
 })(this);
