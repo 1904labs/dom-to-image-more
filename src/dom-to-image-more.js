@@ -251,12 +251,12 @@
             .then(function (clone) {
                 return processClone(node, clone, vector);
             });
-
+        
         function makeNodeCopy(original) {
-            if (original instanceof HTMLCanvasElement) {
+            if (util.isHTMLCanvasElement(original)) {
                 return util.makeImage(original.toDataURL());
             }
-            if (original.nodeName === "IFRAME") {
+            if (original.nodeName.toUpperCase() === "IFRAME") {
                 return html2canvas(original.contentDocument.body)
                     .then(canvas => {
                         return canvas.toDataURL();
@@ -293,7 +293,7 @@
         }
 
         function processClone(original, clone, vector) {
-            if (!(clone instanceof Element)) { return clone; }
+            if (!util.isElement(clone)) { return clone; }
 
             return Promise.resolve()
                 .then(cloneStyle)
@@ -381,7 +381,6 @@
                         }
 
                         function formatCssProperties() {
-
                             return `${util.asArray(style)
                                 .map(formatProperty)
                                 .join('; ')};`;
@@ -395,15 +394,15 @@
             }
 
             function copyUserInput() {
-                if (original instanceof HTMLTextAreaElement) { clone.innerHTML = original.value; }
-                if (original instanceof HTMLInputElement) { clone.setAttribute("value", original.value); }
+                if (util.isHTMLTextAreaElement(original)) { clone.innerHTML = original.value; }
+                if (util.isHTMLInputElement(original)) { clone.setAttribute("value", original.value); }
             }
 
             function fixSvg() {
-                if (!(clone instanceof SVGElement)) { return; }
+                if (!util.isSVGElement(clone)) { return; }
                 clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-                if (!(clone instanceof SVGRectElement)) { return; }
+                if (!util.isSVGRectElement(clone)) { return; }
                 ['width', 'height'].forEach(function (attribute) {
                     const value = clone.getAttribute(attribute);
                     if (value) {
@@ -465,8 +464,73 @@
             escapeXhtml: escapeXhtml,
             makeImage: makeImage,
             width: width,
-            height: height
+            height: height,
+            isWindow: isWindow,
+            getWindow: getWindow,
+            isElement: isElement,
+            isHTMLElement: isHTMLElement,
+            isHTMLCanvasElement: isHTMLCanvasElement,
+            isHTMLInputElement: isHTMLInputElement,        
+            isHTMLImageElement: isHTMLImageElement,
+            isHTMLTextAreaElement: isHTMLTextAreaElement,
+            isSVGElement: isSVGElement,
+            isSVGRectElement: isSVGRectElement
         };
+
+        function isWindow(value) {
+            return (
+                value &&
+                value.document &&
+                value.location &&
+                value.alert &&
+                value.setInterval
+            );
+        }
+            
+        function getWindow(node) {
+            if (node == null) {
+                return window;
+            }
+            
+            if (!isWindow(node)) {
+                const ownerDocument = node.ownerDocument;
+                return ownerDocument ? (ownerDocument.defaultView || window) : window;
+            }
+            
+            return node;
+        }
+            
+        function isElement(value) {
+            return value instanceof getWindow(value).Element;
+        }
+            
+        function isHTMLCanvasElement(value) {
+            return value instanceof getWindow(value).HTMLCanvasElement;
+        }
+        
+        function isHTMLElement(value) {
+            return value instanceof getWindow(value).HTMLElement;
+        }
+                
+        function isHTMLImageElement(value) {
+            return value instanceof getWindow(value).HTMLImageElement;
+        }
+        
+        function isHTMLInputElement(value) {
+            return value instanceof getWindow(value).HTMLInputElement;
+        }
+            
+        function isSVGElement(value) {
+            return value instanceof getWindow(value).SVGElement;
+        }
+    
+        function isSVGRectElement(value) {
+            return value instanceof getWindow(value).SVGRectElement;
+        }
+    
+        function isHTMLTextAreaElement(value) {
+            return value instanceof getWindow(value).HTMLTextAreaElement;
+        }
 
         function mimes() {
             /*
@@ -871,11 +935,11 @@
         }
 
         function inlineAll(node) {
-            if (!(node instanceof Element)) { return Promise.resolve(node); }
+            if (!util.isElement(node)) { return Promise.resolve(node); }
 
             return inlineBackground(node)
                 .then(function () {
-                    if (node instanceof HTMLImageElement) {
+                    if (util.isHTMLImageElement(node)) {
                         return newImage(node).inline();
                     } else {
                         return Promise.all(
