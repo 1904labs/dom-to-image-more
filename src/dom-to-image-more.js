@@ -66,12 +66,13 @@
      * @return {Promise} - A promise that is fulfilled with a SVG image data URL
      * */
     function toSvg(node, options) {
+        const ownerWindow = domtoimage.impl.util.getWindow(node);
         options = options || {};
         copyOptions(options);
         return Promise.resolve(node)
             .then(function (clonee) {
                 const root = true;
-                return cloneNode(clonee, options.filter, root, !options.raster);
+                return cloneNode(clonee, options.filter, root, !options.raster, null, ownerWindow);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -238,7 +239,7 @@
         }
     }
 
-    function cloneNode(node, filter, root, vector, parentComputedStyles = null) {
+    function cloneNode(node, filter, root, vector, parentComputedStyles, ownerWindow) {
         if (!root && filter && !filter(node)) {
             return Promise.resolve();
         }
@@ -251,7 +252,7 @@
             .then(function (clone) {
                 return processClone(node, clone, vector);
             });
-        
+
         function makeNodeCopy(original) {
             if (util.isHTMLCanvasElement(original)) {
                 return util.makeImage(original.toDataURL());
@@ -282,7 +283,7 @@
                 childs.forEach(function (child) {
                     done = done
                         .then(function () {
-                            return cloneNode(child, filter, false, vector, computedStyles);
+                            return cloneNode(child, filter, false, vector, computedStyles, ownerWindow);
                         })
                         .then(function (childClone) {
                             if (childClone) { parent.appendChild(childClone); }
@@ -351,6 +352,8 @@
             }
 
             function clonePseudoElements() {
+                const cloneClassName = util.uid();
+
                 [':before', ':after'].forEach(function (element) {
                     clonePseudoElement(element);
                 });
@@ -361,32 +364,32 @@
 
                     if (content === '' || content === 'none') { return; }
 
-                    const className = util.uid();
-                    const currentClass = clone.getAttribute('class');
-                    if (currentClass) {
-                        clone.setAttribute('class', `${currentClass} ${className}`);
-                    }
+                    const currentClass = clone.getAttribute('class') || '';
+                    clone.setAttribute('class', `${currentClass} ${cloneClassName}`);
 
                     const styleElement = document.createElement('style');
                     styleElement.appendChild(formatPseudoElementStyle());
                     clone.appendChild(styleElement);
 
                     function formatPseudoElementStyle() {
-                        const selector = `.${className}:${element}`;
+                        const selector = `.${cloneClassName}:${element}`;
                         const cssText = style.cssText ? formatCssText() : formatCssProperties();
                         return document.createTextNode(`${selector}{${cssText}}`);
 
                         function formatCssText() {
-                            return `${style.cssText} content: ${style.getPropertyValue('content')};`;
+                            return `${style.cssText} content: ${content};`;
                         }
 
                         function formatCssProperties() {
-                            return `${util.asArray(style)
+                            const styleText = util.asArray(style)
                                 .map(formatProperty)
-                                .join('; ')};`;
+                                .join('; ');
+                            return `${styleText};`;
 
                             function formatProperty(name) {
-                                return `${name}: ${style.getPropertyValue(name)}${(style.getPropertyPriority(name) ? ' !important' : '')}`;
+                                const propertyValue = style.getPropertyValue(name);
+                                const propertyPriority = style.getPropertyPriority(name) ? ' !important' : '';
+                                return `${name}: ${propertyValue}${(propertyPriority)}`;
                             }
                         }
                     }
@@ -399,16 +402,18 @@
             }
 
             function fixSvg() {
-                if (!util.isSVGElement(clone)) { return; }
-                clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                if (util.isSVGElement(clone)) {
+                    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-                if (!util.isSVGRectElement(clone)) { return; }
-                ['width', 'height'].forEach(function (attribute) {
-                    const value = clone.getAttribute(attribute);
-                    if (value) {
-                        clone.style.setProperty(attribute, value);
+                    if (util.isSVGRectElement(clone)) {
+                        ['width', 'height'].forEach(function (attribute) {
+                            const value = clone.getAttribute(attribute);
+                            if (value) {
+                                clone.style.setProperty(attribute, value);
+                            }
+                        });
                     }
-                });
+                }
             }
         }
     }
@@ -416,9 +421,11 @@
     function embedFonts(node) {
         return fontFaces.resolveAll()
             .then(function (cssText) {
-                const styleNode = document.createElement('style');
-                node.appendChild(styleNode);
-                styleNode.appendChild(document.createTextNode(cssText));
+                if (cssText !== '') {
+                    const styleNode = document.createElement('style');
+                    node.appendChild(styleNode);
+                    styleNode.appendChild(document.createTextNode(cssText));
+                }
                 return node;
             });
     }
@@ -449,6 +456,8 @@
     }
 
     function newUtil() {
+        let uid_index = 0;
+
         return {
             escape: escapeRegEx,
             parseExtension: parseExtension,
@@ -458,76 +467,57 @@
             canvasToBlob: canvasToBlob,
             resolveUrl: resolveUrl,
             getAndEncode: getAndEncode,
-            uid: uid(),
+            uid: uid,
             delay: delay,
             asArray: asArray,
             escapeXhtml: escapeXhtml,
             makeImage: makeImage,
             width: width,
             height: height,
-            isWindow: isWindow,
             getWindow: getWindow,
             isElement: isElement,
             isHTMLElement: isHTMLElement,
             isHTMLCanvasElement: isHTMLCanvasElement,
-            isHTMLInputElement: isHTMLInputElement,        
+            isHTMLInputElement: isHTMLInputElement,
             isHTMLImageElement: isHTMLImageElement,
             isHTMLTextAreaElement: isHTMLTextAreaElement,
             isSVGElement: isSVGElement,
             isSVGRectElement: isSVGRectElement
         };
 
-        function isWindow(value) {
-            return (
-                value &&
-                value.document &&
-                value.location &&
-                value.alert &&
-                value.setInterval
-            );
-        }
-            
         function getWindow(node) {
-            if (node == null) {
-                return window;
-            }
-            
-            if (!isWindow(node)) {
-                const ownerDocument = node.ownerDocument;
-                return ownerDocument ? (ownerDocument.defaultView || window) : window;
-            }
-            
-            return node;
+            const ownerDocument = node?.ownerDocument;
+            return ownerDocument?.defaultView || ownerWindow;
         }
-            
+
         function isElement(value) {
             return value instanceof getWindow(value).Element;
         }
-            
+
         function isHTMLCanvasElement(value) {
             return value instanceof getWindow(value).HTMLCanvasElement;
         }
-        
+
         function isHTMLElement(value) {
             return value instanceof getWindow(value).HTMLElement;
         }
-                
+
         function isHTMLImageElement(value) {
             return value instanceof getWindow(value).HTMLImageElement;
         }
-        
+
         function isHTMLInputElement(value) {
             return value instanceof getWindow(value).HTMLInputElement;
         }
-            
+
         function isSVGElement(value) {
             return value instanceof getWindow(value).SVGElement;
         }
-    
+
         function isSVGRectElement(value) {
             return value instanceof getWindow(value).SVGRectElement;
         }
-    
+
         function isHTMLTextAreaElement(value) {
             return value instanceof getWindow(value).HTMLTextAreaElement;
         }
@@ -535,7 +525,7 @@
         function mimes() {
             /*
              * Only WOFF and EOT mime types for fonts are 'real'
-             * see http://www.iana.org/assignments/media-types/media-types.xhtml
+             * see https://www.iana.org/assignments/media-types/media-types.xhtml
              */
             const WOFF = 'application/font-woff';
             const JPEG = 'image/jpeg';
@@ -610,16 +600,12 @@
         }
 
         function uid() {
-            let index = 0;
+            return `u${fourRandomChars()}${uid_index++}`;
 
-            return function () {
-                return `u${fourRandomChars()}${index++}`;
-
-                function fourRandomChars() {
-                    /* see http://stackoverflow.com/a/6248722/2519373 */
-                    return (`0000${(Math.random() * Math.pow(36, 4) << 0).toString(36)}`).slice(-4);
-                }
-            };
+            function fourRandomChars() {
+                /* see https://stackoverflow.com/a/6248722/2519373 */
+                return (`0000${(Math.random() * Math.pow(36, 4) << 0).toString(36)}`).slice(-4);
+            }
         }
 
         function makeImage(uri) {
@@ -655,7 +641,7 @@
                 if (domtoimage.impl.options.cacheBust) {
                     // Cache bypass so we dont have CORS issues with cached images
                     // Source: https://developer.mozilla.org/en/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest#Bypassing_the_cache
-                    url += ((/\?/).test(url) ? "&" : "?") + (new Date()).getTime();
+                    url += ((/\?/).test(url) ? '&' : '?') + (new Date()).getTime();
                 }
 
                 cacheEntry.promise = new Promise(function (resolve) {
@@ -970,6 +956,21 @@
         }
     }
 
+    function setStyleProperty(targetStyle, name, value, priority) {
+        const needs_prefixing = ['background-clip'].indexOf(name) >= 0;
+        if (priority) {
+            targetStyle.setProperty(name, value, priority);
+            if (needs_prefixing) {
+                targetStyle.setProperty(`-webkit-${name}`, value, priority);
+            }
+        } else {
+            targetStyle.setProperty(name, value);
+            if (needs_prefixing) {
+                targetStyle.setProperty(`-webkit-${name}`, value);
+            }
+        }
+    }
+
     // `copyUserComputedStyle` and `copyUserComputedStyleFast` copy element styles, omitting defaults to reduce memory
     // consumption. The former is slow and omits all defaults, while the latter is faster and omits most defaults. Out
     // of ~340 CSS rules, usually <=10 are set, so it makes sense to only copy what we need. By omitting defaults, the
@@ -988,12 +989,12 @@
             const initialValue = sourceComputedStyles.getPropertyValue(style);
 
             if (initialValue !== value) {
-                targetStyle.setProperty(style, value);
+                setStyleProperty(targetStyle, style, value, undefined);
             } else {
                 targetStyle.removeProperty(style);
             }
 
-            inlineStyles.setProperty(style, inlineValue);
+            setStyleProperty(inlineStyles, style, inlineValue);
         }
     }
 
@@ -1007,7 +1008,8 @@
             // styles are inherited from the parent and which aren't, so we have to always check both.
             if (sourceValue !== defaultStyle[name] ||
                 (parentComputedStyles && sourceValue !== parentComputedStyles.getPropertyValue(name))) {
-                targetStyle.setProperty(name, sourceValue, sourceComputedStyles.getPropertyPriority(name));
+                const priority = sourceComputedStyles.getPropertyPriority(name);
+                setStyleProperty(targetStyle, name, sourceValue, priority);
             }
         });
     }
