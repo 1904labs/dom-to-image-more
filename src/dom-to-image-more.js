@@ -252,7 +252,7 @@
             .then(function (clone) {
                 return processClone(node, clone, vector);
             });
-
+        
         function makeNodeCopy(original) {
             if (util.isHTMLCanvasElement(original)) {
                 return util.makeImage(original.toDataURL());
