@@ -196,6 +196,13 @@
                     .then(done).catch(done);
             });
 
+            it('should render iframe of street view', function (done) {
+                this.timeout(60000);
+                loadTestPage('iframe/street-view.html', 'iframe/style.css', 'iframe/control-image')
+                    .then(renderAndCheck)
+                    .then(done).catch(done);
+            });
+
             it('should render user input from <textarea>', function (done) {
                 loadTestPage('textarea/dom-node.html', 'textarea/style.css')
                     .then(function () {

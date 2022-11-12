@@ -260,16 +260,9 @@
             });
 
         function makeNodeCopy(original) {
-            if (util.isHTMLCanvasElement(original)) {
-                return util.makeImage(original.toDataURL());
-            }
-            if (original.nodeName.toUpperCase() === "IFRAME") {
-                return html2canvas(original.contentDocument.body)
-                    .then(canvas => {
-                        return canvas.toDataURL();
-                    }).then(util.makeImage);
-            }
-            return original.cloneNode(false);
+            return util.isHTMLCanvasElement(original)
+                ? util.makeImage(original.toDataURL())
+                : original.cloneNode(false);
         }
 
         function cloneChildren(original, clone) {
