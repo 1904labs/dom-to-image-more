@@ -258,7 +258,7 @@
             .then(function (clone) {
                 return processClone(node, clone, vector);
             });
-
+        
         function makeNodeCopy(original) {
             return util.isHTMLCanvasElement(original)
                 ? util.makeImage(original.toDataURL())
