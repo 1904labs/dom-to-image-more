@@ -988,6 +988,7 @@
     function copyUserComputedStyle(sourceElement, sourceComputedStyles, targetElement, root) {
         const targetStyle = targetElement.style;
         const inlineStyles = sourceElement.style;
+        const inlineStyleText = inlineStyles.cssText;
 
         for (let style of sourceComputedStyles) {
             const value = sourceComputedStyles.getPropertyValue(style);
@@ -1004,6 +1005,8 @@
 
             setStyleProperty(inlineStyles, style, inlineValue);
         }
+
+        if (!inlineStyleText.length) sourceElement.removeAttribute('style');
     }
 
     function copyUserComputedStyleFast(sourceComputedStyles, parentComputedStyles, targetElement) {
