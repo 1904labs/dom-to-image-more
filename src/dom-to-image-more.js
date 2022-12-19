@@ -120,9 +120,7 @@
      * @return {Promise} - A promise that is fulfilled with a Uint8Array containing RGBA pixel data.
      * */
     function toPixelData(node, options) {
-        options = options || {};
-        options.raster = true;
-        return draw(node, options)
+        return draw(node, options || {})
             .then(function (canvas) {
                 return canvas.getContext('2d').getImageData(
                     0,
@@ -139,9 +137,7 @@
      * @return {Promise} - A promise that is fulfilled with a PNG image data URL
      * */
     function toPng(node, options) {
-        options = options || {};
-        options.raster = true;
-        return draw(node, options)
+        return draw(node, options || {})
             .then(function (canvas) {
                 return canvas.toDataURL();
             });
@@ -154,7 +150,6 @@
      * */
     function toJpeg(node, options) {
         options = options || {};
-        options.raster = true;
         return draw(node, options)
             .then(function (canvas) {
                 return canvas.toDataURL('image/jpeg', options.quality || 1.0);
@@ -167,9 +162,7 @@
      * @return {Promise} - A promise that is fulfilled with a PNG image blob
      * */
     function toBlob(node, options) {
-        options = options || {};
-        options.raster = true;
-        return draw(node, options)
+        return draw(node, options || {})
             .then(util.canvasToBlob);
     }
 
@@ -179,8 +172,6 @@
      * @return {Promise} - A promise that is fulfilled with a canvas object
      * */
     function toCanvas(node, options) {
-        options = options || {};
-        options.raster = true;
         return draw(node, options || {});
     }
 
@@ -212,6 +203,7 @@
     }
 
     function draw(domNode, options) {
+        options.raster = true;
         return toSvg(domNode, options)
             .then(util.makeImage)
             .then(util.delay(0))
