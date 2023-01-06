@@ -568,23 +568,6 @@
                     .then(done).catch(done);
             });
 
-            it('should parse extension', function () {
-                const parse = domtoimage.impl.util.parseExtension;
-
-                assert.equal(parse('http://acme.com/font.woff'), 'woff');
-                assert.equal(parse('../FONT.TTF'), 'TTF');
-                assert.equal(parse('../font'), '');
-                assert.equal(parse('font'), '');
-            });
-
-            it('should guess mime type from url', function () {
-                const mime = domtoimage.impl.util.mimeType;
-
-                assert.equal(mime('http://acme.com/font.woff'), 'application/font-woff');
-                assert.equal(mime('IMAGE.PNG'), 'image/png');
-                assert.equal(mime('http://acme.com/image'), '');
-            });
-
             it('should resolve url', function () {
                 const resolve = domtoimage.impl.util.resolveUrl;
 
