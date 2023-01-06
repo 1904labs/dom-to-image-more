@@ -445,7 +445,6 @@
 
         return {
             escape: escapeRegEx,
-            parseExtension: parseExtension,
             isDataUrl: isDataUrl,
             canvasToBlob: canvasToBlob,
             resolveUrl: resolveUrl,
@@ -525,15 +524,6 @@
                 'tiff': 'image/tiff',
                 'svg': 'image/svg+xml'
             };
-        }
-
-        function parseExtension(url) {
-            const match = /\.([^\.\/]*?)(\?|$)/g.exec(url);
-            if (match) {
-                return match[1];
-            } else {
-                return '';
-            }
         }
 
         function isDataUrl(url) {
