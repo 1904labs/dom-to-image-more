@@ -446,8 +446,6 @@
         return {
             escape: escapeRegEx,
             parseExtension: parseExtension,
-            mimeType: mimeType,
-            dataAsUrl: dataAsUrl,
             isDataUrl: isDataUrl,
             canvasToBlob: canvasToBlob,
             resolveUrl: resolveUrl,
@@ -536,11 +534,6 @@
             } else {
                 return '';
             }
-        }
-
-        function mimeType(url) {
-            const extension = parseExtension(url).toLowerCase();
-            return mimes()[extension] || '';
         }
 
         function isDataUrl(url) {
@@ -666,8 +659,7 @@
 
                         const encoder = new FileReader();
                         encoder.onloadend = function () {
-                            const content = encoder.result.split(/,/)[1];
-                            resolve(content);
+                            resolve(encoder.result);
                         };
                         encoder.readAsDataURL(request.response);
                     }
@@ -687,10 +679,6 @@
                 });
             }
             return cacheEntry.promise;
-        }
-
-        function dataAsUrl(content, type) {
-            return `data:${type};base64,${content}`;
         }
 
         function escapeRegEx(string) {
@@ -772,9 +760,6 @@
                     return baseUrl ? util.resolveUrl(urlValue, baseUrl) : urlValue;
                 })
                 .then(get || util.getAndEncode)
-                .then(function (data) {
-                    return util.dataAsUrl(data, util.mimeType(url));
-                })
                 .then(function (dataUrl) {
                     return string.replace(urlAsRegex(url), `\$1${dataUrl}\$3`);
                 });
@@ -891,9 +876,6 @@
 
                 return Promise.resolve(element.src)
                     .then(get || util.getAndEncode)
-                    .then(function (data) {
-                        return util.dataAsUrl(data, util.mimeType(element.src));
-                    })
                     .then(function (dataUrl) {
                         return new Promise(function (resolve) {
                             element.onload = resolve;
