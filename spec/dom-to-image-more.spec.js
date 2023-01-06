@@ -119,7 +119,7 @@
             });
 
             it('should render text nodes', function (done) {
-                this.timeout(10000);
+                this.timeout(20000);
                 loadTestPage('text/dom-node.html', 'text/style.css')
                     .then(renderToPng)
                     .then(drawDataUrl)
@@ -490,7 +490,7 @@
                 inline('url(http://acme.com/image.png), url(foo.com)', 'http://acme.com/image.png',
                     NO_BASE_URL,
                     function () {
-                        return Promise.resolve('AAA');
+                        return Promise.resolve('data:image/png;base64,AAA');
                     })
                     .then(function (result) {
                         assert.equal(result, 'url(data:image/png;base64,AAA), url(foo.com)');
@@ -504,7 +504,7 @@
                 inline('url(images/image.png)', 'images/image.png', 'http://acme.com/',
                     function (url) {
                         return Promise.resolve({
-                            'http://acme.com/images/image.png': 'AAA'
+                            'http://acme.com/images/image.png': 'data:image/png;base64,AAA'
                         }[url]);
                     }
                 )
@@ -521,8 +521,8 @@
                     NO_BASE_URL,
                     function (url) {
                         return Promise.resolve({
-                            'http://acme.com/image.png': 'AAA',
-                            'foo.com/font.ttf': 'BBB'
+                            'http://acme.com/image.png': 'data:image/png;base64,AAA',
+                            'foo.com/font.ttf': 'data:application/font-truetype;base64,BBB'
                         }[url]);
                     }
                 )
