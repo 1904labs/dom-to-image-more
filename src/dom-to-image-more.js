@@ -504,28 +504,6 @@
             return value instanceof getWindow(value).HTMLTextAreaElement;
         }
 
-        function mimes() {
-            /*
-             * Only WOFF and EOT mime types for fonts are 'real'
-             * see https://www.iana.org/assignments/media-types/media-types.xhtml
-             */
-            const WOFF = 'application/font-woff';
-            const JPEG = 'image/jpeg';
-
-            return {
-                'woff': WOFF,
-                'woff2': WOFF,
-                'ttf': 'application/font-truetype',
-                'eot': 'application/vnd.ms-fontobject',
-                'png': 'image/png',
-                'jpg': JPEG,
-                'jpeg': JPEG,
-                'gif': 'image/gif',
-                'tiff': 'image/tiff',
-                'svg': 'image/svg+xml'
-            };
-        }
-
         function isDataUrl(url) {
             return url.search(/^(data:)/) !== -1;
         }
