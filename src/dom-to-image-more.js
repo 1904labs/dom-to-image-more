@@ -45,6 +45,11 @@
     const getComputedStyle = global.getComputedStyle || window.getComputedStyle;
     const atob = global.atob || window.atob;
 
+    // hoisted getDefaultStyle() variables
+    let removeDefaultStylesTimeoutId = null;
+    let sandbox = null;
+    let tagNameDefaultStyles = {};
+
     /**
      * @param {Node} node - The DOM Node object to render
      * @param {Object} options - Rendering options
@@ -236,7 +241,7 @@
     }
 
     function cloneNode(node, filter, root, parentComputedStyles, ownerWindow) {
-        if (!root && filter && !filter(node)) {
+        if (!root && (filter && !filter(node) || node === sandbox)) {
             return Promise.resolve();
         }
 
@@ -930,10 +935,6 @@
             }
         });
     }
-
-    let removeDefaultStylesTimeoutId = null;
-    let sandbox = null;
-    let tagNameDefaultStyles = {};
 
     function getDefaultStyle(tagName) {
         if (tagNameDefaultStyles[tagName]) {
