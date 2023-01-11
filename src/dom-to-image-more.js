@@ -957,7 +957,7 @@
         const defaultElement = document.createElement(tagName);
         sandbox.contentWindow.document.body.appendChild(defaultElement);
         // Ensure that there is some content, so that properties like margin are applied.
-        defaultElement.textContent = '.';
+        defaultElement.textContent = ';';
         const defaultComputedStyle = sandbox.contentWindow.getComputedStyle(defaultElement);
         const defaultStyle = {};
         // Copy styles to an object, making sure that 'width' and 'height' are given the default value of 'auto', since
