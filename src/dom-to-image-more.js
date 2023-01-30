@@ -1204,7 +1204,8 @@
                 const charset = document.createElement('meta');
                 charset.setAttribute('charset', document.characterSet || 'UTF-8');
                 sandbox.contentDocument.head.appendChild(charset);
-                // If the parent document lacks a Trusted Types policy, fallback to quirks mode.
+                // Ensure the document is rendered in standard mode by coercing doctype.
+                // If the parent document has a Trusted Types policy, fallback to quirks mode.
                 let isTrustedTypesRequired;
                 try {
                     const xhr = new XMLHttpRequest();
@@ -1216,7 +1217,6 @@
                     isTrustedTypesRequired = true;
                 }
                 if (!isTrustedTypesRequired) {
-                    // Ensure the document is rendered in standard mode by coercing doctype.
                     const sandboxDocument = document.implementation.createHTMLDocument(sandbox.id);
                     const sandboxDoctype = document.doctype ? '<!DOCTYPE html>' : '';
                     const sandboxHTML = `${sandboxDoctype}${sandboxDocument.documentElement.outerHTML}`;
