@@ -1208,10 +1208,10 @@
                 // If the parent document has a Trusted Types policy, fallback to quirks mode.
                 let isTrustedTypesRequired;
                 try {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('GET', document.location.href, false);
-                    xhr.send();
-                    const csp = xhr.getResponseHeader('content-security-policy');
+                    const request = new XMLHttpRequest();
+                    request.open('HEAD', document.location.href, false);
+                    request.send();
+                    const csp = request.getResponseHeader('content-security-policy');
                     isTrustedTypesRequired = csp.indexOf('require-trusted-types-for') !== -1;
                 } catch(_) {
                     isTrustedTypesRequired = true;
