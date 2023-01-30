@@ -1199,13 +1199,30 @@
                 sandbox.style.visibility = 'hidden';
                 sandbox.style.position = 'fixed';
                 document.body.appendChild(sandbox);
-                // Ensure that the iframe is rendered in standard mode
+                sandbox.id = sandbox.contentDocument.title = 'domtoimage-sandbox';
+                // Ensure the iframe's character rendering matches the document (with UTF-8 fallback).
                 const charset = document.createElement('meta');
                 charset.setAttribute('charset', document.characterSet || 'UTF-8');
                 sandbox.contentDocument.head.appendChild(charset);
-                sandbox.contentDocument.title = 'sandbox';
+                // If the parent document lacks a Trusted Types policy, fallback to quirks mode.
+                let isTrustedTypesRequired;
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('GET', document.location.href, false);
+                    xhr.send();
+                    const csp = xhr.getResponseHeader('content-security-policy');
+                    isTrustedTypesRequired = csp.indexOf('require-trusted-types-for') !== -1;
+                } catch(_) {
+                    isTrustedTypesRequired = true;
+                }
+                if (!isTrustedTypesRequired) {
+                    // Ensure the document is rendered in standard mode by coercing doctype.
+                    const sandboxDocument = document.implementation.createHTMLDocument(sandbox.id);
+                    const sandboxDoctype = document.doctype ? '<!DOCTYPE html>' : '';
+                    const sandboxHTML = `${sandboxDoctype}${sandboxDocument.documentElement.outerHTML}`;
+                    sandbox.setAttribute('srcdoc', sandboxHTML);
+                }
             }
-
             return sandbox.contentWindow;
         }
 
