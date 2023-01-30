@@ -1218,6 +1218,7 @@
                 }
                 if (!isTrustedTypesRequired) {
                     const sandboxDocument = document.implementation.createHTMLDocument(sandbox.id);
+                    sandboxDocument.head.appendChild(charset);
                     const sandboxDoctype = document.doctype ? '<!DOCTYPE html>' : '';
                     const sandboxHTML = `${sandboxDoctype}${sandboxDocument.documentElement.outerHTML}`;
                     sandbox.setAttribute('srcdoc', sandboxHTML);
