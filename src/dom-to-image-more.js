@@ -1199,7 +1199,7 @@
                 sandbox.style.visibility = 'hidden';
                 sandbox.style.position = 'fixed';
                 document.body.appendChild(sandbox);
-                sandbox.id = sandbox.contentDocument.title = 'domtoimage-sandbox';
+                sandbox.id = sandbox.contentDocument.title = 'domtoimage-sandbox-' + util.uid();
                 // Ensure the iframe's character rendering matches the document (with UTF-8 fallback).
                 const charset = document.createElement('meta');
                 charset.setAttribute('charset', document.characterSet || 'UTF-8');
@@ -1220,7 +1220,7 @@
                     const sandboxDocument = document.implementation.createHTMLDocument(sandbox.id);
                     sandboxDocument.head.appendChild(charset);
                     const sandboxDoctype = document.doctype ? '<!DOCTYPE html>' : '';
-                    const sandboxHTML = `${sandboxDoctype}${sandboxDocument.documentElement.outerHTML}`;
+                    const sandboxHTML = sandboxDoctype + sandboxDocument.documentElement.outerHTML;
                     sandbox.setAttribute('srcdoc', sandboxHTML);
                 }
             }
