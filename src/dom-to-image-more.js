@@ -1197,7 +1197,7 @@
                 const charsetToUse = document.characterSet || 'UTF-8';               
                 const docType = document.doctype;
                 const docTypeDeclaration = docType
-                    ? `<!DOCTYPE ${docType.name} ${docType.publicId} ${docType.systemId}`.trim() + '>'
+                    ? `<!DOCTYPE ${escapeHTML(docType.name)} ${escapeHTML(docType.publicId)} ${escapeHTML(docType.systemId)}`.trim() + '>'
                     : '';
 
                 // Create a hidden sandbox <iframe> element within we can create default HTML elements and query their
@@ -1210,6 +1210,17 @@
                 document.body.appendChild(sandbox);
 
                 return tryTechniques(sandbox, docTypeDeclaration, charsetToUse, 'domtoimage-sandbox');
+            }
+
+            function escapeHTML(unsafeText) {
+                if (unsafeText) {
+                    const div = document.createElement('div');
+                    div.innerText = unsafeText;
+                    return div.innerHTML;
+                }
+                else {
+                    return '';
+                }
             }
 
             return sandbox.contentWindow;
