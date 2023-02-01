@@ -193,7 +193,7 @@
         } else {
             domtoimage.impl.options.useCredentials = options.useCredentials;
         }
-        
+
         if (typeof (options.httpTimeout) === 'undefined') {
             domtoimage.impl.options.httpTimeout = defaultOptions.httpTimeout;
         } else {
@@ -248,7 +248,7 @@
             .then(function (clone) {
                 return processClone(node, clone);
             });
-        
+
         function makeNodeCopy(original) {
             return util.isHTMLCanvasElement(original)
                 ? util.makeImage(original.toDataURL())
@@ -878,7 +878,7 @@
                     const value = node.style.getPropertyValue(propertyName);
                     const priority = node.style.getPropertyPriority(propertyName);
 
-                    if(!value) {
+                    if (!value) {
                         return Promise.resolve();
                     }
 
@@ -939,43 +939,122 @@
         if (tagNameDefaultStyles[tagName]) {
             return tagNameDefaultStyles[tagName];
         }
-        if (!sandbox) {
+
+        // We haven't cached the answer for this tag yet, build a
+        // sandbox (if not yet created), fill it with the element
+        // and grab the default styles associated
+        const sandboxWindow = ensureSandboxWindow();
+        const sandboxDocument = sandboxWindow.document;
+        const defaultElement = constructElement(sandboxDocument, tagName);
+        const defaultStyle = computeStyleForDefaults(sandboxWindow, defaultElement);
+        destroyElement(sandboxDocument, defaultElement);
+
+        tagNameDefaultStyles[tagName] = defaultStyle;
+        return defaultStyle;
+
+        function ensureSandboxWindow() {
+            if (sandbox) {
+                return sandbox.contentWindow;
+            }
+
+            // figure out how this document is defined (doctype and charset)
+            const charsetToUse = document.characterSet || 'UTF-8';
+            const docType = document.doctype;
+            const docTypeDeclaration = docType
+                ? `<!DOCTYPE ${escapeHTML(docType.name)} ${escapeHTML(docType.publicId)} ${escapeHTML(docType.systemId)}`.trim() + '>'
+                : '';
+
             // Create a hidden sandbox <iframe> element within we can create default HTML elements and query their
             // computed styles. Elements must be rendered in order to query their computed styles. The <iframe> won't
             // render at all with `display: none`, so we have to use `visibility: hidden` with `position: fixed`.
             sandbox = document.createElement('iframe');
+            sandbox.id = 'domtoimage-sandbox-' + util.uid();
             sandbox.style.visibility = 'hidden';
             sandbox.style.position = 'fixed';
             document.body.appendChild(sandbox);
-            // Ensure that the iframe is rendered in standard mode
-            const charset = document.createElement('meta');
-            charset.setAttribute('charset', document.characterSet || 'UTF-8');
-            sandbox.contentDocument.head.appendChild(charset);
-            sandbox.contentDocument.title = 'sandbox';
+
+            return tryTechniques(
+                sandbox,
+                docTypeDeclaration,
+                charsetToUse,
+                'domtoimage-sandbox'
+            );
+
+            function escapeHTML(unsafeText) {
+                if (unsafeText) {
+                    const div = document.createElement('div');
+                    div.innerText = unsafeText;
+                    return div.innerHTML;
+                } else {
+                    return '';
+                }
+            }
+
+            function tryTechniques(sandbox, doctype, charset, title) {
+                // try the good old-fashioned document write with all the correct attributes set
+                try {
+                    sandbox.contentWindow.document.write(
+                        `${doctype}<html><head><meta charset='${charset}'><title>${title}</title></head><body></body></html>`
+                    );
+                    return sandbox.contentWindow;
+                } catch (_) {
+                    // swallow exception and fall through to next technique
+                }
+
+                const metaCharset = document.createElement('meta');
+                metaCharset.setAttribute('charset', charset);
+
+                // let's attempt it using srcdoc, so we can still set the doctype and charset
+                try {
+                    const sandboxDocument =
+                        document.implementation.createHTMLDocument(title);
+                    sandboxDocument.head.appendChild(metaCharset);
+                    const sandboxHTML =
+                        doctype + sandboxDocument.documentElement.outerHTML;
+                    sandbox.setAttribute('srcdoc', sandboxHTML);
+                    return sandbox.contentWindow;
+                } catch (_) {
+                    // swallow exception and fall through to the simplest path
+                }
+
+                // let's attempt it using contentDocument... here we're not able to set the doctype
+                sandbox.contentDocument.head.appendChild(metaCharset);
+                sandbox.contentDocument.title = title;
+                return sandbox.contentWindow;
+            }
         }
-        const defaultElement = document.createElement(tagName);
-        sandbox.contentWindow.document.body.appendChild(defaultElement);
-        // Ensure that there is some content, so that properties like margin are applied.
-        defaultElement.textContent = '.';
-        const defaultComputedStyle = sandbox.contentWindow.getComputedStyle(defaultElement);
-        const defaultStyle = {};
-        // Copy styles to an object, making sure that 'width' and 'height' are given the default value of 'auto', since
-        // their initial value is always 'auto' despite that the default computed value is sometimes an absolute length.
-        util.asArray(defaultComputedStyle).forEach(function (name) {
-            defaultStyle[name] =
-                (name === 'width' || name === 'height') ? 'auto' : defaultComputedStyle.getPropertyValue(name);
-        });
-        sandbox.contentWindow.document.body.removeChild(defaultElement);
-        tagNameDefaultStyles[tagName] = defaultStyle;
-        return defaultStyle;
+
+        function constructElement(sandboxDocument, tagName) {
+            const defaultElement = sandboxDocument.createElement(tagName);
+            sandboxDocument.body.appendChild(defaultElement);
+            // Ensure that there is some content, so that properties like margin are applied.
+            // we use zero-width space to handle FireFox adding a pixel
+            defaultElement.textContent = '\u200b';
+            return defaultElement;
+        }
+
+        function computeStyleForDefaults(sandboxWindow, defaultElement) {
+            const defaultStyle = {};
+            const defaultComputedStyle = sandboxWindow.getComputedStyle(defaultElement);
+            // Copy styles to an object, making sure that 'width' and 'height' are given the default value of 'auto', since
+            // their initial value is always 'auto' despite that the default computed value is sometimes an absolute length.
+            util.asArray(defaultComputedStyle).forEach(function (name) {
+                defaultStyle[name] =
+                    (name === 'width' || name === 'height') ? 'auto' : defaultComputedStyle.getPropertyValue(name);
+            });
+            return defaultStyle;
+        }
+
+        function destroyElement(sandboxDocument, defaultElement) {
+            sandboxDocument.body.removeChild(defaultElement);
+        }
     }
 
     function removeSandbox() {
-        if (!sandbox) {
-            return;
+        if (sandbox) {
+            document.body.removeChild(sandbox);
+            sandbox = null;
         }
-        document.body.removeChild(sandbox);
-        sandbox = null;
         if (removeDefaultStylesTimeoutId) {
             clearTimeout(removeDefaultStylesTimeoutId);
         }
