@@ -429,13 +429,14 @@
                     'style/style.css',
                     'style/control-image'
                 )
-                    .then(() => renderToPng(domNode(),
-                        {
+                    .then(() =>
+                        renderToPng(domNode(), {
                             style: {
                                 'background-color': 'red',
                                 'transform': 'scale(0.5)',
                             },
-                        }))
+                        })
+                    )
                     .then(check)
                     .then(done)
                     .catch(done);
@@ -459,8 +460,8 @@
                     'scale/style.css',
                     'scale/control-image'
                 )
-                    .then(() => renderToPng(domNode(),
-                        {
+                    .then(() =>
+                        renderToPng(domNode(), {
                             width: 200,
                             height: 200,
                             style: {
@@ -577,9 +578,7 @@
             }
 
             function renderToPngAndCheck() {
-                return Promise.resolve()
-                    .then(renderToPng)
-                    .then(check);
+                return Promise.resolve().then(renderToPng).then(check);
             }
 
             function check(dataUrl) {
@@ -993,7 +992,10 @@
         }
 
         function renderToPixelData(_node, options) {
-            return domtoimage.toPixelData(domNode(), Object.assign({}, debugOptions, options));
+            return domtoimage.toPixelData(
+                domNode(),
+                Object.assign({}, debugOptions, options)
+            );
         }
 
         function renderToPng(_node, options) {
