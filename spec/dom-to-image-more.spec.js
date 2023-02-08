@@ -526,17 +526,6 @@
                     .catch(done);
             });
 
-            // eslint-disable-next-line no-unused-vars
-            function delay(ms) {
-                return function (arg) {
-                    return new Promise(function (resolve) {
-                        setTimeout(function () {
-                            resolve(arg);
-                        }, ms);
-                    });
-                };
-            }
-
             it('should not get fooled by math elements', function (done) {
                 this.timeout(5000);
                 loadTestPage('math/dom-node.html', null, 'math/control-image')
@@ -982,16 +971,25 @@
 
         const debugOptions = { onclone: cloneCatcher, debugCache: true };
 
+        function cloneCatcher(clone) {
+            clonedNode().replaceChildren(clone);
+            return clone;
+        }
+
         // all of these helpers completely ignore the incoming node as it usually is the test page
+
         function renderToBlob(_node, options) {
+            /* jshint unused:false */
             return domtoimage.toBlob(domNode(), Object.assign({}, debugOptions, options));
         }
 
         function renderToJpeg(_node, options) {
+            /* jshint unused:false */
             return domtoimage.toJpeg(domNode(), Object.assign({}, debugOptions, options));
         }
 
         function renderToPixelData(_node, options) {
+            /* jshint unused:false */
             return domtoimage.toPixelData(
                 domNode(),
                 Object.assign({}, debugOptions, options)
@@ -999,16 +997,13 @@
         }
 
         function renderToPng(_node, options) {
+            /* jshint unused:false */
             return domtoimage.toPng(domNode(), Object.assign({}, debugOptions, options));
         }
 
         function renderToSvg(_node, options) {
+            /* jshint unused:false */
             return domtoimage.toSvg(domNode(), Object.assign({}, debugOptions, options));
-        }
-
-        function cloneCatcher(clone) {
-            clonedNode().replaceChildren(clone);
-            return clone;
         }
     });
 })(this);
