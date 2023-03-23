@@ -118,7 +118,7 @@
             });
 
             it('should render text nodes', function (done) {
-                this.timeout(20000);
+                this.timeout(30000);
                 loadTestPage('text/dom-node.html', 'text/style.css')
                     .then(renderToPng)
                     .then(drawDataUrl)

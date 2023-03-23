@@ -210,7 +210,6 @@
                 const scale = typeof (options.scale) !== 'number' ? 1 : options.scale;
                 const canvas = newCanvas(domNode, scale);
                 const ctx = canvas.getContext('2d');
-                ctx.mozImageSmoothingEnabled = false;
                 ctx.msImageSmoothingEnabled = false;
                 ctx.imageSmoothingEnabled = false;
                 if (image) {
@@ -236,7 +235,10 @@
     }
 
     function cloneNode(node, filter, root, parentComputedStyles, ownerWindow) {
-        if (!root && filter && !filter(node)) {
+        // NEVER clone SCRIPT blocks and if not at root, and there's a filter
+        // ignore anything for which filter returns falsey
+        if (node.tagName === 'SCRIPT'
+            || (!root && filter && !filter(node))) {
             return Promise.resolve();
         }
 
@@ -563,7 +565,16 @@
                     image.crossOrigin = 'use-credentials';
                 }
                 image.onload = function () {
-                    resolve(image);
+                    if (window && window.requestAnimationFrame) {
+                        // In order to work around a Firefox bug (webcompat/web-bugs#119834) we
+                        // need to wait one extra frame before it's safe to read the image data.
+                        window.requestAnimationFrame(function () {
+                            resolve(image);
+                        });
+                    } else {
+                        // If we don't have a window or requestAnimationFrame function proceed immediately.
+                        resolve(image);
+                    }
                 };
                 image.onerror = reject;
                 image.src = uri;
@@ -678,20 +689,32 @@
         }
 
         function width(node) {
-            const leftBorder = px(node, 'border-left-width');
-            const rightBorder = px(node, 'border-right-width');
-            return node.scrollWidth + leftBorder + rightBorder;
+            const width = px(node, "width");
+            if (isNaN(width)) {
+              const leftBorder = px(node, 'border-left-width');
+              const rightBorder = px(node, 'border-right-width');
+              return node.scrollWidth + leftBorder + rightBorder;
+            }
+            return width;
         }
 
         function height(node) {
-            const topBorder = px(node, 'border-top-width');
-            const bottomBorder = px(node, 'border-bottom-width');
-            return node.scrollHeight + topBorder + bottomBorder;
+            const height = px(node, "height");
+            if (isNaN(height)) {
+              const topBorder = px(node, 'border-top-width');
+              const bottomBorder = px(node, 'border-bottom-width');
+              return node.scrollHeight + topBorder + bottomBorder;
+            }
+            return height;
         }
 
         function px(node, styleProperty) {
-            const value = getComputedStyle(node).getPropertyValue(styleProperty);
-            return parseFloat(value.replace('px', ''));
+            let value = getComputedStyle(node).getPropertyValue(styleProperty);
+            if (value.slice(-2) !== 'px') {
+            	return NaN;
+            }
+            value = value.slice(0, -2);
+            return parseFloat(value);
         }
     }
 
@@ -921,10 +944,13 @@
 
         util.asArray(sourceComputedStyles).forEach(function (name) {
             const sourceValue = sourceComputedStyles.getPropertyValue(name);
+            const defaultValue = defaultStyle[name];
+            const parentValue = parentComputedStyles ? parentComputedStyles.getPropertyValue(name) : undefined;
+
             // If the style does not match the default, or it does not match the parent's, set it. We don't know which
             // styles are inherited from the parent and which aren't, so we have to always check both.
-            if (sourceValue !== defaultStyle[name] ||
-                (parentComputedStyles && sourceValue !== parentComputedStyles.getPropertyValue(name))) {
+            if (sourceValue !== defaultValue ||
+                (parentComputedStyles && sourceValue !== parentValue)) {
                 const priority = sourceComputedStyles.getPropertyPriority(name);
                 setStyleProperty(targetStyle, name, sourceValue, priority);
             }

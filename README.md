@@ -266,7 +266,7 @@ for you, following steps are taken:
 Marc Brooks, Anatolii Saienko (original dom-to-image), Paul Bakaus (original idea),
 Aidas Klimas (fixes), Edgardo Di Gesto (fixes), 樊冬 Fan Dong (fixes), Shrijan Tripathi (docs),
 SNDST00M (optimize), Joseph White (performance CSS), Phani Rithvij (test),
-David DOLCIMASCOLO (packaging), @meche-gh (node copy cleaning)
+David DOLCIMASCOLO (packaging), Zee (ZM) @zm-cttae (many major updates), Joshua Walsh @JoshuaWalsh (Firefox issues)
 
 ## License
 
