@@ -48,7 +48,7 @@
 
     // support node and browsers
     const getComputedStyle = global.getComputedStyle || (typeof window !== 'undefined' && window.getComputedStyle);
-    const atob = global.atob ||  (typeof window !== 'undefined' &&window.atob);
+    const atob = global.atob ||  (typeof window !== 'undefined' && window.atob);
 
     /**
      * @param {Node} node - The DOM Node object to render
