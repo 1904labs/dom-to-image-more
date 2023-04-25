@@ -143,9 +143,14 @@
                 onCloneResult = options.onclone(clone);
             }
 
-            return Promise.resolve(onCloneResult).then(function () {
-                return clone;
-            });
+            if (options.compress) {
+                compressSvg(clone);
+            }
+
+            return Promise.resolve(onCloneResult)
+                .then(function () {
+                    return clone;
+                });
         }
 
         function makeSvgDataUri(node) {
@@ -558,6 +563,115 @@
             return node;
         });
     }
+
+    function compressSvg(clone) {
+        const sandboxWindow = ensureSandboxWindow();
+        sandboxWindow.document.body.appendChild(clone);
+    
+        // Generate ascending DOM tree for reverse level order traversal.
+        // CSS inheritance is computed downward (preorder traversal) and is additive-cumulative.
+        // The filter op is subtractive and goes upward (to only splice out inheritable style declarations).
+        const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT);
+        const tree = [walker.currentNode];
+        let node;
+        while ((node = walker.nextNode())) tree.push(node);
+
+        function getNodeDepth(node, root, depth) {
+            const parent = node.parentElement;
+            return parent === clone.parentElement ? depth : getNodeDepth(parent, root, ++depth);
+        }
+
+        const depths = tree.map((element) => getNodeDepth(element, clone, 1));
+
+        const pyramid = [];
+        let depth = Math.max.apply(Math, depths);
+        while (depth) {
+            for (let index = 0; index < tree.length; index++) {
+                if (depths[index] === depth) pyramid.push(tree[index]);
+            }
+            depth--;
+        }
+
+        let delta;
+        while (delta !== 0) {
+            delta = 0;
+            pyramid.forEach(filterWinningInlineStyles);
+        }
+
+        sandboxWindow.document.body.removeChild(clone);
+
+        // Exploratory filter to reduce an inline style to winning declarations (<2ms / element).
+        // Destructively remove declarations and check if there is a computed value change. If so, restore.
+        function filterWinningInlineStyles(element) {
+            if (!element.attributes.style) return;
+
+            const targetStyle = element.style;
+            const computedStyles = getComputedStyle(element);
+            delta += targetStyle.cssText.length;
+        
+            // Hack to disable dynamic changes in CSS computed values.
+            // Prevents false positives in the declaration filter.
+            const animations = { 'animation-duration': '', 'transition-duration': '' };
+            for (const name in animations) {
+                animations[name] = targetStyle.getPropertyValue(name);
+                if (animations[name]) targetStyle.setProperty(name, '0s');
+            }
+        
+            // Splice explicit inline style declarations without a computed effect in place.
+            // By prioritising standard CSS properties & lots of hyphens, we reduce attack time & perf load.
+            tokenizeCssTextDeclarations(targetStyle.cssText)
+                .map(getCssTextProperty)
+                .sort(compareHyphenCount)
+                .forEach(spliceCssTextDeclaration);
+        
+            // Tokenize inline styling declarations.
+            function tokenizeCssTextDeclarations(cssText) {
+                return cssText.replace(/;$/, '').split(/;\s*(?=-*\w+(?:-\w+)*:\s*(?:[^"']*["'][^"']*["'])*[^"']*$)/g);
+            }
+
+            // Get property name from CSS declaration.
+            function getCssTextProperty(declaration) {
+                return declaration.slice(0, declaration.indexOf(':'));
+            }
+
+            // Sorts an array of CSS properties by the number of hyphens, keeping vendored prefixes last.
+            // Optimize for compression gains and early hits by sending shorthand, vendored and custom properties last.
+            function compareHyphenCount(a, b) {
+                const isCustom = (name) => /^--\b/.test(name);
+                const isVendored = (name) => /^-\b/.test(name);
+
+                return (
+                    (isCustom(a) & !isCustom(b)) * 0b1000000 |
+                    (isVendored(a) & !isVendored(b)) * 0b0100000 |
+                    Math.max(a.split('-').length - b.split('-').length, 0b0011111)
+                );
+            }
+
+            // Filters style declarations in place to keep the filter deterministic.
+            // The styles dumped by `copyUserComputedStyleFast` are position-dependent.
+            function spliceCssTextDeclaration(name) {
+                if (name === 'width' || name === 'height') return; // cross-browser portability
+                if (name === 'animation-duration' || name === 'transition-duration') return; // dynamic properties
+
+                const value = targetStyle.getPropertyValue(name);
+                const declarations = tokenizeCssTextDeclarations(targetStyle.cssText);
+                let index = declarations.findIndex(d => name === getCssTextProperty(d));
+                if (index === -1) return;
+
+                targetStyle.cssText = [].concat(declarations.slice(0, index), declarations.slice(index + 1)).join('; ') + ';';
+                if (value === computedStyles.getPropertyValue(name)) return;
+                targetStyle.cssText = declarations.join('; ') + ';';
+            }
+
+            // Restore dynamic CSS properties.
+            for (const name in animations) if (animations[name].length) targetStyle.setProperty(name, animations[name]);
+
+            delta -= targetStyle.cssText.length;
+
+            if (element.getAttribute('style') === '') element.removeAttribute('style');
+        }
+    }
+
     function newUtil() {
         let uid_index = 0;
 
@@ -1262,80 +1376,6 @@
             return tagHierarchy.join('>'); // it's like CSS
         }
 
-        function ensureSandboxWindow() {
-            if (sandbox) {
-                return sandbox.contentWindow;
-            }
-
-            // figure out how this document is defined (doctype and charset)
-            const charsetToUse = document.characterSet || 'UTF-8';
-            const docType = document.doctype;
-            const docTypeDeclaration = docType
-                ? `<!DOCTYPE ${escapeHTML(docType.name)} ${escapeHTML(
-                      docType.publicId
-                  )} ${escapeHTML(docType.systemId)}`.trim() + '>'
-                : '';
-
-            // Create a hidden sandbox <iframe> element within we can create default HTML elements and query their
-            // computed styles. Elements must be rendered in order to query their computed styles. The <iframe> won't
-            // render at all with `display: none`, so we have to use `visibility: hidden` with `position: fixed`.
-            sandbox = document.createElement('iframe');
-            sandbox.id = 'domtoimage-sandbox-' + util.uid();
-            sandbox.style.visibility = 'hidden';
-            sandbox.style.position = 'fixed';
-            document.body.appendChild(sandbox);
-
-            return tryTechniques(
-                sandbox,
-                docTypeDeclaration,
-                charsetToUse,
-                'domtoimage-sandbox'
-            );
-
-            function escapeHTML(unsafeText) {
-                if (unsafeText) {
-                    const div = document.createElement('div');
-                    div.innerText = unsafeText;
-                    return div.innerHTML;
-                } else {
-                    return '';
-                }
-            }
-
-            function tryTechniques(sandbox, doctype, charset, title) {
-                // try the good old-fashioned document write with all the correct attributes set
-                try {
-                    sandbox.contentWindow.document.write(
-                        `${doctype}<html><head><meta charset='${charset}'><title>${title}</title></head><body></body></html>`
-                    );
-                    return sandbox.contentWindow;
-                } catch (_) {
-                    // swallow exception and fall through to next technique
-                }
-
-                const metaCharset = document.createElement('meta');
-                metaCharset.setAttribute('charset', charset);
-
-                // let's attempt it using srcdoc, so we can still set the doctype and charset
-                try {
-                    const sandboxDocument =
-                        document.implementation.createHTMLDocument(title);
-                    sandboxDocument.head.appendChild(metaCharset);
-                    const sandboxHTML =
-                        doctype + sandboxDocument.documentElement.outerHTML;
-                    sandbox.setAttribute('srcdoc', sandboxHTML);
-                    return sandbox.contentWindow;
-                } catch (_) {
-                    // swallow exception and fall through to the simplest path
-                }
-
-                // let's attempt it using contentDocument... here we're not able to set the doctype
-                sandbox.contentDocument.head.appendChild(metaCharset);
-                sandbox.contentDocument.title = title;
-                return sandbox.contentWindow;
-            }
-        }
-
         function constructElementHierachy(sandboxDocument, tagHierarchy) {
             let element = sandboxDocument.body;
             do {
@@ -1374,6 +1414,84 @@
                 }
                 element = parentElement;
             } while (element && element.tagName !== 'BODY');
+        }
+    }
+
+    function ensureSandboxWindow() {
+        if (sandbox) {
+            return sandbox.contentWindow;
+        }
+
+        // figure out how this document is defined (doctype and charset)
+        const charsetToUse = document.characterSet || 'UTF-8';
+        const docType = document.doctype;
+        const docTypeDeclaration = docType
+            ? `<!DOCTYPE ${escapeHTML(docType.name)} ${escapeHTML(
+                docType.publicId
+            )} ${escapeHTML(docType.systemId)}`.trim() + '>'
+            : '';
+
+        // Create a hidden sandbox <iframe> element within we can create default HTML elements and query their
+        // computed styles. Elements must be rendered in order to query their computed styles. The <iframe> won't
+        // render at all with `display: none`, so we have to use `visibility: hidden` with `position: fixed`.
+        sandbox = document.createElement('iframe');
+        sandbox.id = 'domtoimage-sandbox-' + util.uid();
+        sandbox.style.visibility = 'hidden';
+        sandbox.style.position = 'fixed';
+        // Apply the CSS box dimension properties of the parent document for higher compression gains.
+        sandbox.width = innerWidth;
+        sandbox.height = innerHeight;
+        sandbox.sandbox.add('allow-same-origin');
+        document.body.appendChild(sandbox);
+
+        return tryTechniques(
+            sandbox,
+            docTypeDeclaration,
+            charsetToUse,
+            'domtoimage-sandbox'
+        );
+
+        function escapeHTML(unsafeText) {
+            if (unsafeText) {
+                const div = document.createElement('div');
+                div.innerText = unsafeText;
+                return div.innerHTML;
+            } else {
+                return '';
+            }
+        }
+
+        function tryTechniques(sandbox, doctype, charset, title) {
+            // try the good old-fashioned document write with all the correct attributes set
+            try {
+                sandbox.contentWindow.document.write(
+                    `${doctype}<html><head><meta charset='${charset}'><title>${title}</title></head><body></body></html>`
+                );
+                return sandbox.contentWindow;
+            } catch (_) {
+                // swallow exception and fall through to next technique
+            }
+
+            const metaCharset = document.createElement('meta');
+            metaCharset.setAttribute('charset', charset);
+
+            // let's attempt it using srcdoc, so we can still set the doctype and charset
+            try {
+                const sandboxDocument =
+                    document.implementation.createHTMLDocument(title);
+                sandboxDocument.head.appendChild(metaCharset);
+                const sandboxHTML =
+                    doctype + sandboxDocument.documentElement.outerHTML;
+                sandbox.setAttribute('srcdoc', sandboxHTML);
+                return sandbox.contentWindow;
+            } catch (_) {
+                // swallow exception and fall through to the simplest path
+            }
+
+            // let's attempt it using contentDocument... here we're not able to set the doctype
+            sandbox.contentDocument.head.appendChild(metaCharset);
+            sandbox.contentDocument.title = title;
+            return sandbox.contentWindow;
         }
     }
 
