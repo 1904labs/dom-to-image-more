@@ -573,29 +573,31 @@
         // The filter op is subtractive and goes upward (to only splice out inheritable style declarations).
         const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT);
         const tree = [walker.currentNode];
+        const depths = [];
         let node;
-        while ((node = walker.nextNode())) tree.push(node);
 
         function getNodeDepth(node, root, depth) {
             const parent = node.parentElement;
             return parent === clone.parentElement ? depth : getNodeDepth(parent, root, ++depth);
         }
 
-        const depths = tree.map((element) => getNodeDepth(element, clone, 1));
-
-        const pyramid = [];
-        let depth = Math.max.apply(Math, depths);
-        while (depth) {
-            for (let index = 0; index < tree.length; index++) {
-                if (depths[index] === depth) pyramid.push(tree[index]);
-            }
-            depth--;
+        while ((node = walker.nextNode())) {
+            tree.push(node);
+            depths.push(getNodeDepth(element, clone, 1));
         }
 
+        let height = Math.max.apply(Math, depths);
         let delta;
         while (delta !== 0) {
             delta = 0;
-            pyramid.forEach(filterWinningInlineStyles);
+            while (height !== 0) {
+                tree.forEach(function(node, index) {
+                    if (depths[index] === height) {
+                        filterWinningInlineStyles(node);
+                    }
+                });
+                height--;
+            }
         }
 
         sandboxWindow.document.body.removeChild(clone);
