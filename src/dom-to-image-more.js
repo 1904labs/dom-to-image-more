@@ -643,9 +643,9 @@
                 const isVendored = (name) => /^-\b/.test(name);
 
                 return (
-                    (isCustom(a) & !isCustom(b)) * 0b1000000 |
-                    (isVendored(a) & !isVendored(b)) * 0b0100000 |
-                    Math.max(a.split('-').length - b.split('-').length, 0b0011111)
+                    (isCustom(a) & !isCustom(b)) * 0b1000000000 |
+                    (isVendored(a) & !isVendored(b)) * 0b0100000000 |
+                    Math.max(a.split('-').length - b.split('-').length, 0b0011111111)
                 );
             }
 
