@@ -580,15 +580,15 @@
         const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT);
         const tree = [walker.currentNode];
         const depths = [];
-        let node;
+        let element;
 
         function getNodeDepth(node, root, depth) {
             const parent = node.parentElement;
             return parent === clone.parentElement ? depth : getNodeDepth(parent, root, ++depth);
         }
 
-        while ((node = walker.nextNode())) {
-            tree.push(node);
+        while ((element = walker.nextNode())) {
+            tree.push(element);
             depths.push(getNodeDepth(element, clone, 1));
         }
 
