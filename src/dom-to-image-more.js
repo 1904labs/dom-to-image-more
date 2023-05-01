@@ -5,7 +5,6 @@
     const inliner = newInliner();
     const fontFaces = newFontFaces();
     const images = newImages();
-    const ELEMENT_NODE = Node.ELEMENT_NODE || 1;
 
     // Default impl options
     const defaultOptions = {
@@ -47,8 +46,16 @@
     }
 
     // support node and browsers
-    const getComputedStyle = global.getComputedStyle || window.getComputedStyle;
-    const atob = global.atob || window.atob;
+    const ELEMENT_NODE =
+        (typeof Node !== 'undefined' ? Node.ELEMENT_NODE : undefined) || 1;
+    const getComputedStyle =
+        (typeof global !== 'undefined' ? global.getComputedStyle : undefined) ||
+        (typeof window !== 'undefined' ? window.getComputedStyle : undefined) ||
+        globalThis.getComputedStyle;
+    const atob =
+        (typeof global !== 'undefined' ? global.atob : undefined) ||
+        (typeof window !== 'undefined' ? window.atob : undefined) ||
+        globalThis.atob;
 
     /**
      * @param {Node} node - The DOM Node object to render
@@ -108,7 +115,6 @@
             // put the original children back where the wrappers were inserted
             while (restorations.length > 0) {
                 const restoration = restorations.pop();
-                //console.log(`parent: ${restoration.parent}\nchild: ${restoration.child}\nwrapper: ${restoration.wrapper}`);
                 restoration.parent.replaceChild(restoration.child, restoration.wrapper);
             }
 
@@ -1479,11 +1485,9 @@
 
             // let's attempt it using srcdoc, so we can still set the doctype and charset
             try {
-                const sandboxDocument =
-                    document.implementation.createHTMLDocument(title);
+                const sandboxDocument = document.implementation.createHTMLDocument(title);
                 sandboxDocument.head.appendChild(metaCharset);
-                const sandboxHTML =
-                    doctype + sandboxDocument.documentElement.outerHTML;
+                const sandboxHTML = doctype + sandboxDocument.documentElement.outerHTML;
                 sandbox.setAttribute('srcdoc', sandboxHTML);
                 return sandbox.contentWindow;
             } catch (_) {

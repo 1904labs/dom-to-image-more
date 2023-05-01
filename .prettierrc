@@ -7,5 +7,6 @@
     "arrowParens": "always",
     "endOfLine": "lf",
     "tabWidth": 4,
-    "printWidth": 90
+    "printWidth": 90,
+    "proseWrap": "always"
 }
