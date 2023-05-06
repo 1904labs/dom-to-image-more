@@ -20,6 +20,8 @@
         httpTimeout: 30000,
         // Style computation cache tag rules (options are strict, relaxed)
         styleCaching: 'strict',
+        // Output compression for SVG output 
+        compressSvg: true,
     };
 
     const domtoimage = {
@@ -75,6 +77,7 @@
      * @param {String} options.imagePlaceholder - dataURL to use as a placeholder for failed images, default behaviour is to fail fast on images we can't fetch
      * @param {Boolean} options.cacheBust - set to true to cache bust by appending the time to the request url
      * @param {String} options.styleCaching - set to 'strict', 'relaxed' to select style caching rules
+     * @param {String} options.compressSvg - set to false to disable SVG output simplication, defaults to true which processes large nodes also
      * @param {Boolean} options.copyDefaultStyles - set to false to disable use of default styles of elements
      * @return {Promise} - A promise that is fulfilled with a SVG image data URL
      * */
@@ -149,7 +152,7 @@
                 onCloneResult = options.onclone(clone);
             }
 
-            if (options.compress) {
+            if (options.compressSvg === true) {
                 compressSvg(clone);
             }
 
@@ -281,10 +284,19 @@
         } else {
             domtoimage.impl.options.styleCaching = options.styleCaching;
         }
+
+        if (typeof options.compressSvg === 'undefined') {
+            domtoimage.impl.options.compressSvg = defaultOptions.compressSvg;
+        } else {
+            domtoimage.impl.options.compressSvg = options.compressSvg;
+        }
     }
 
     function draw(domNode, options) {
         options = options || {};
+        // When a rendered DOM element is drawn on a canvas it is rasterised as an image.
+        // Add a flag here to short-circuit the visual data compression for the SVG render.
+        options.compressSvg = false;
         return toSvg(domNode, options)
             .then(util.makeImage)
             .then(function (image) {
