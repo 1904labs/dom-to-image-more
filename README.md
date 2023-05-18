@@ -300,12 +300,13 @@ taken:
 
 1. Use original `dom-to-image` type definition
    `npm install @types/dom-to-image --save-dev`
+   (or `yarn add @types/dom-to-image --dev` using yarn)
 
 1. Create dom-to-image-more type definition (`dom-to-image-more.d.ts`)
 
     ```javascript
     declare module 'dom-to-image-more' {
-     import domToImage = require('dom-to-image-more');
+     import domToImage = require('dom-to-image');
      export = domToImage;
     }
     ```
