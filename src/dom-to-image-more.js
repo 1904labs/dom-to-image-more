@@ -20,6 +20,8 @@
         httpTimeout: 30000,
         // Style computation cache tag rules (options are strict, relaxed)
         styleCaching: 'strict',
+        // Output compression for SVG output 
+        compressSvg: true,
     };
 
     const domtoimage = {
@@ -75,6 +77,7 @@
      * @param {String} options.imagePlaceholder - dataURL to use as a placeholder for failed images, default behaviour is to fail fast on images we can't fetch
      * @param {Boolean} options.cacheBust - set to true to cache bust by appending the time to the request url
      * @param {String} options.styleCaching - set to 'strict', 'relaxed' to select style caching rules
+     * @param {String} options.compressSvg - set to false to disable SVG output simplication, defaults to true which processes large nodes also
      * @param {Boolean} options.copyDefaultStyles - set to false to disable use of default styles of elements
      * @return {Promise} - A promise that is fulfilled with a SVG image data URL
      * */
@@ -149,9 +152,14 @@
                 onCloneResult = options.onclone(clone);
             }
 
-            return Promise.resolve(onCloneResult).then(function () {
-                return clone;
-            });
+            if (options.compressSvg === true) {
+                compressSvg(clone);
+            }
+
+            return Promise.resolve(onCloneResult)
+                .then(function () {
+                    return clone;
+                });
         }
 
         function makeSvgDataUri(node) {
@@ -276,10 +284,19 @@
         } else {
             domtoimage.impl.options.styleCaching = options.styleCaching;
         }
+
+        if (typeof options.compressSvg === 'undefined') {
+            domtoimage.impl.options.compressSvg = defaultOptions.compressSvg;
+        } else {
+            domtoimage.impl.options.compressSvg = options.compressSvg;
+        }
     }
 
     function draw(domNode, options) {
         options = options || {};
+        // When a rendered DOM element is drawn on a canvas it is rasterised as an image.
+        // Add a flag here to short-circuit the visual data compression for the SVG render.
+        options.compressSvg = false;
         return toSvg(domNode, options)
             .then(util.makeImage)
             .then(function (image) {
@@ -564,6 +581,117 @@
             return node;
         });
     }
+
+    function compressSvg(clone) {
+        const sandboxWindow = ensureSandboxWindow();
+        sandboxWindow.document.body.appendChild(clone);
+    
+        // Generate ascending DOM tree for reverse level order traversal.
+        // CSS inheritance is computed downward (preorder traversal) and is additive-cumulative.
+        // The filter op is subtractive and goes upward (to only splice out inheritable style declarations).
+        const walker = document.createTreeWalker(clone, NodeFilter.SHOW_ELEMENT);
+        const tree = [walker.currentNode];
+        const depths = [];
+        let element;
+
+        function getNodeDepth(node, root, depth) {
+            const parent = node.parentElement;
+            return parent === clone.parentElement ? depth : getNodeDepth(parent, root, ++depth);
+        }
+
+        while ((element = walker.nextNode())) {
+            tree.push(element);
+            depths.push(getNodeDepth(element, clone, 1));
+        }
+
+        let height = Math.max.apply(Math, depths);
+        let delta;
+        while (delta !== 0) {
+            delta = 0;
+            while (height !== 0) {
+                tree.forEach(function(node, index) {
+                    if (depths[index] === height) {
+                        filterWinningInlineStyles(node);
+                    }
+                });
+                height--;
+            }
+        }
+
+        sandboxWindow.document.body.removeChild(clone);
+
+        // Exploratory filter to reduce an inline style to winning declarations (<2ms / element).
+        // Destructively remove declarations and check if there is a computed value change. If so, restore.
+        function filterWinningInlineStyles(element) {
+            if (!element.attributes.style) return;
+
+            const targetStyle = element.style;
+            const computedStyles = getComputedStyle(element);
+            delta += targetStyle.cssText.length;
+        
+            // Hack to disable dynamic changes in CSS computed values.
+            // Prevents false positives in the declaration filter.
+            const animations = { 'animation-duration': '', 'transition-duration': '' };
+            for (const name in animations) {
+                animations[name] = targetStyle.getPropertyValue(name);
+                if (animations[name]) targetStyle.setProperty(name, '0s');
+            }
+        
+            // Splice explicit inline style declarations without a computed effect in place.
+            // By prioritising standard CSS properties & lots of hyphens, we reduce attack time & perf load.
+            tokenizeCssTextDeclarations(targetStyle.cssText)
+                .map(getCssTextProperty)
+                .sort(compareHyphenCount)
+                .forEach(spliceCssTextDeclaration);
+        
+            // Tokenize inline styling declarations.
+            function tokenizeCssTextDeclarations(cssText) {
+                return cssText.replace(/;$/, '').split(/;\s*(?=-*\w+(?:-\w+)*:\s*(?:[^"']*["'][^"']*["'])*[^"']*$)/g);
+            }
+
+            // Get property name from CSS declaration.
+            function getCssTextProperty(declaration) {
+                return declaration.slice(0, declaration.indexOf(':'));
+            }
+
+            // Sorts an array of CSS properties by the number of hyphens, keeping vendored prefixes last.
+            // Optimize for compression gains and early hits by sending shorthand, vendored and custom properties last.
+            function compareHyphenCount(a, b) {
+                const isCustom = (name) => /^--\b/.test(name);
+                const isVendored = (name) => /^-\b/.test(name);
+
+                return (
+                    (isCustom(a) & !isCustom(b)) * 0b1000000000 |
+                    (isVendored(a) & !isVendored(b)) * 0b0100000000 |
+                    Math.max(a.split('-').length - b.split('-').length, 0b0011111111)
+                );
+            }
+
+            // Filters style declarations in place to keep the filter deterministic.
+            // The styles dumped by `copyUserComputedStyleFast` are position-dependent.
+            function spliceCssTextDeclaration(name) {
+                if (name === 'width' || name === 'height') return; // cross-browser portability
+                if (name === 'animation-duration' || name === 'transition-duration') return; // dynamic properties
+
+                const value = targetStyle.getPropertyValue(name);
+                const declarations = tokenizeCssTextDeclarations(targetStyle.cssText);
+                let index = declarations.findIndex(d => name === getCssTextProperty(d));
+                if (index === -1) return;
+
+                targetStyle.cssText = [].concat(declarations.slice(0, index), declarations.slice(index + 1)).join('; ') + ';';
+                if (value === computedStyles.getPropertyValue(name)) return;
+                targetStyle.cssText = declarations.join('; ') + ';';
+            }
+
+            // Restore dynamic CSS properties.
+            for (const name in animations) if (animations[name].length) targetStyle.setProperty(name, animations[name]);
+
+            delta -= targetStyle.cssText.length;
+
+            if (element.getAttribute('style') === '') element.removeAttribute('style');
+        }
+    }
+
     function newUtil() {
         let uid_index = 0;
 
@@ -1319,8 +1447,8 @@
         const docType = document.doctype;
         const docTypeDeclaration = docType
             ? `<!DOCTYPE ${escapeHTML(docType.name)} ${escapeHTML(
-                  docType.publicId
-              )} ${escapeHTML(docType.systemId)}`.trim() + '>'
+                docType.publicId
+            )} ${escapeHTML(docType.systemId)}`.trim() + '>'
             : '';
 
         // Create a hidden sandbox <iframe> element within we can create default HTML elements and query their
@@ -1330,6 +1458,10 @@
         sandbox.id = 'domtoimage-sandbox-' + util.uid();
         sandbox.style.visibility = 'hidden';
         sandbox.style.position = 'fixed';
+        // Apply the CSS box dimension properties of the parent document for higher compression gains.
+        sandbox.width = innerWidth;
+        sandbox.height = innerHeight;
+        sandbox.sandbox.add('allow-same-origin');
         document.body.appendChild(sandbox);
 
         return tryTechniques(
