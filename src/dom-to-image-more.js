@@ -97,8 +97,8 @@
         let restorations = [];
         return Promise.resolve(node)
             .then(ensureElement)
-            .then(function (clone) {
-                return cloneNode(clone, options, null, ownerWindow);
+            .then(function (clonee) {
+                return cloneNode(clonee, options, null, ownerWindow);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -439,11 +439,13 @@
 
             function getRenderedChildren(original) {
                 if (util.isShadowSlotElement(original)) {
-                    const childElement = [
-                        ...original.childNodes, // default child elements inside the named slot
-                        ...original.assignedNodes(), // assigned node to the named slot
-                    ];
+                    // default child elements inside the named slot
+                    let childElement = original.childNodes;
 
+                    if (original.assignedNodes().length > 0) {
+                        // replace the default child elements when have assigned nodes
+                        childElement = original.assignedNodes();
+                    }
                     return childElement;
                 }
 
