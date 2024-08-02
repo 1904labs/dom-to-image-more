@@ -97,8 +97,8 @@
         let restorations = [];
         return Promise.resolve(node)
             .then(ensureElement)
-            .then(function (clonee) {
-                return cloneNode(clonee, options, null, ownerWindow);
+            .then(function (clone) {
+                return cloneNode(clone, options, null, ownerWindow);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -439,8 +439,14 @@
 
             function getRenderedChildren(original) {
                 if (util.isShadowSlotElement(original)) {
-                    return original.assignedNodes(); // shadow DOM <slot> has "assigned nodes" as rendered children
+                    const childElement = [
+                        ...original.childNodes, // default child elements inside the named slot
+                        ...original.assignedNodes(), // assigned node to the named slot
+                    ];
+
+                    return childElement;
                 }
+
                 return original.childNodes;
             }
         }
@@ -658,9 +664,13 @@
         }
 
         function isInShadowRoot(value) {
+            // Object.prototype.hasOwnProperty.call(value, 'getRootNode') always is false
+            // MDN hasOwnProperty: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty
+            // hasOwnProperty returns a boolean indicating whether this object has the specified property as its own property
+            // getRootNode is inherited from the prototype chain, and defined on the Node prototype
             return (
                 value !== null &&
-                Object.prototype.hasOwnProperty.call(value, 'getRootNode') &&
+                'getRootNode' in value &&
                 isShadowRoot(value.getRootNode())
             );
         }
