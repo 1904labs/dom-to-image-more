@@ -1035,7 +1035,7 @@
     }
 
     function newInliner() {
-        const URL_REGEX = /url\(['"]?([^'"]+?)['"]?\)/g;
+        const URL_REGEX = /url\((['"]?)([^'"]+?)\1\)/g;
 
         return {
             inlineAll: inlineAll,
@@ -1054,7 +1054,7 @@
             const result = [];
             let match;
             while ((match = URL_REGEX.exec(string)) !== null) {
-                result.push(match[1]);
+                result.push(match[2]);
             }
             return result.filter(function (url) {
                 return !util.isDataUrl(url);
