@@ -39,7 +39,8 @@
             });
 
             it('should handle filterStyles', function (done) {
-                function filterStyles(node, propertyName) {
+                function filterStyles(_node, propertyName) {
+                    /* jshint unused:false */
                     return propertyName !== 'background-color';
                 }
 

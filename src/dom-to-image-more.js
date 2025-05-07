@@ -788,7 +788,7 @@
             return new Promise(function (resolve, reject) {
                 // Create an SVG element to house the image
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                
+
                 // and create the Image element to insert into that wrapper
                 const image = new Image();
 
@@ -811,7 +811,7 @@
                         resolve(image);
                     }
                 };
-                
+
                 image.onerror = (error) => {
                     // Cleanup: remove the image from the document
                     document.body.removeChild(svg);
@@ -821,7 +821,7 @@
 
                 svg.appendChild(image);
                 image.src = uri;
-                
+
                 // Add the SVG to the document body (invisible)
                 document.body.appendChild(svg);
             });
