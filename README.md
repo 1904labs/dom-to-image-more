@@ -404,7 +404,8 @@ DOLCIMASCOLO (packaging), Zee (ZM) @zm-cttae (many major updates), Joshua Walsh
 (useCredentialsFilters), Aravind @codesculpture (fix overridden props), Shi Wenyu @cWenyu
 (shadow slot fix), David Burns @davidburns573 and Yujia Cheng @YujiaCheng1996 (font copy
 optional), Julien Dorra @juliendorra (documentation), Sean Zhang @SeanZhang-eaton (regex
-fixes)
+fixes), Ludovic Bouges @ludovic (style property filter), Roland Ma @RolandMa1986 (URL
+regex)"
 
 ## License
 

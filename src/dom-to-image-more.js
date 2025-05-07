@@ -1035,7 +1035,7 @@
     }
 
     function newInliner() {
-        const URL_REGEX = /url\(['"]?([^'"]+?)['"]?\)/g;
+        const URL_REGEX = /url\((["']?)((?:\\?.)*?)\1\)/gm;
 
         return {
             inlineAll: inlineAll,
@@ -1043,6 +1043,7 @@
             impl: {
                 readUrls: readUrls,
                 inline: inline,
+                urlAsRegex: urlAsRegex,
             },
         };
 
@@ -1054,11 +1055,15 @@
             const result = [];
             let match;
             while ((match = URL_REGEX.exec(string)) !== null) {
-                result.push(match[1]);
+                result.push(match[2]);
             }
             return result.filter(function (url) {
                 return !util.isDataUrl(url);
             });
+        }
+
+        function urlAsRegex(urlValue) {
+            return new RegExp(`url\\((["']?)(${util.escape(urlValue)})\\1\\)`, 'gm');
         }
 
         function inline(string, url, baseUrl, get) {
@@ -1068,15 +1073,9 @@
                 })
                 .then(get || util.getAndEncode)
                 .then(function (dataUrl) {
-                    return string.replace(urlAsRegex(url), `$1${dataUrl}$3`);
+                    const pattern = urlAsRegex(url);
+                    return string.replace(pattern, `url($1${dataUrl}$1)`);
                 });
-
-            function urlAsRegex(urlValue) {
-                return new RegExp(
-                    `(url\\(['"]?)(${util.escape(urlValue)})(['"]?\\))`,
-                    'g'
-                );
-            }
         }
 
         function inlineAll(string, baseUrl, get) {

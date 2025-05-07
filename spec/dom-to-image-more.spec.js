@@ -761,9 +761,14 @@
         describe('inliner', function () {
             const NO_BASE_URL = null;
 
+            it('should process urls', function () {
+                const should = domtoimage.impl.inliner.shouldProcess;
+                assert.deepEqual(should('url("http://acme.com/file")'), true);
+                assert.deepEqual(should('nope("http://acme.com/file")'), false);
+            });
+
             it('should parse urls', function () {
                 const parse = domtoimage.impl.inliner.impl.readUrls;
-
                 assert.deepEqual(parse('url("http://acme.com/file")'), [
                     'http://acme.com/file',
                 ]);
@@ -776,8 +781,33 @@
 
             it('should ignore data urls', function () {
                 const parse = domtoimage.impl.inliner.impl.readUrls;
-
                 assert.deepEqual(parse('url(foo.com), url(data:AAA)'), ['foo.com']);
+            });
+
+            it('should build a decent escaped regex urls', function () {
+                const regexer = domtoimage.impl.inliner.impl.urlAsRegex;
+
+                one('http://foo.com', 'url("http://foo.com")', '"');
+                one('http://foo.com', "url('http://foo.com')", "'");
+                one('http://foo.com', 'url(http://foo.com)', '');
+                one(
+                    'http://foo.com',
+                    'url("http://bar.org") and url(\'http://foo.com\')',
+                    "'"
+                );
+                one('https://example.org', 'url(ping.png)', null);
+
+                function one(input, css, expectation) {
+                    const pattern = regexer(input);
+                    const findings = pattern.exec(css);
+                    //console.log({ pattern: pattern.toString(), input, css, findings, expectation});
+
+                    if (findings) {
+                        assert.deepEqual(findings.slice(1, 3), [expectation, input]);
+                    } else {
+                        assert.isNull(expectation);
+                    }
+                }
             });
 
             it('should inline url', function (done) {
