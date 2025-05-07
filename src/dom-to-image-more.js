@@ -916,7 +916,7 @@
                     let placeholder;
                     if (domtoimage.impl.options.imagePlaceholder) {
                         const split = domtoimage.impl.options.imagePlaceholder.split(/,/);
-                        if (split && split[1]) {
+                        if (split?.[1]) {
                             placeholder = split[1];
                         }
                     }
@@ -1165,7 +1165,7 @@
             function newWebFont(webFontRule) {
                 return {
                     resolve: function resolve() {
-                        const baseUrl = (webFontRule.parentStyleSheet || {}).href;
+                        const baseUrl = webFontRule.parentStyleSheet?.href;
                         return inliner.inlineAll(webFontRule.cssText, baseUrl);
                     },
                     src: function () {
@@ -1506,6 +1506,7 @@
                 sandbox.setAttribute('srcdoc', sandboxHTML);
                 return sandbox.contentWindow;
             } catch (_) {
+                // NOSONAR
                 // swallow exception and fall through to the simplest path
             }
 
