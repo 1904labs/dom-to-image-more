@@ -14,10 +14,10 @@ dom-to-image-more. As browsers have matured, many of the hacks we're accumulated
 years are not needed, or better ways have been found to handle some edge-cases. With the
 help of folks like @meche-gh, in #99 we're stripping out the following members:
 
-    - `.mimes` - was the not-very-comprehensive list of mime types used to handle inlining things
-    - `.parseExtension` - was a method to extract the extension from a filename, used to guess mime types
-    - `.mimeType` - was a method to map file extensions to mime types
-    - `.dataAsUrl` - was a method to reassemble a `data:` URI from a Base64 representation and mime type
+- `.mimes` - was the not-very-comprehensive list of mime types used to handle inlining things
+- `.parseExtension` - was a method to extract the extension from a filename, used to guess mime types
+- `.mimeType` - was a method to map file extensions to mime types
+- `.dataAsUrl` - was a method to reassemble a `data:` URI from a Base64 representation and mime type
 
 The 3.x release branch should also fix more node compatibility and `iframe` issues.
 
@@ -46,12 +46,12 @@ Moved to [1904labs organization](https://github.com/1904labs/) from my repositor
 
 Then load
 
-    ```javascript
-    /* in ES 6 */
-    import domtoimage from 'dom-to-image-more';
-    /* in ES 5 */
-    var domtoimage = require('dom-to-image-more');
-    ```
+```javascript
+/* in ES 6 */
+import domtoimage from 'dom-to-image-more';
+/* in ES 5 */
+var domtoimage = require('dom-to-image-more');
+```
 
 ## Usage
 
@@ -59,97 +59,97 @@ All the top level functions accept DOM node and rendering options, and return pr
 which are fulfilled with corresponding data URLs. Get a PNG image base64-encoded data URL
 and display right away:
 
-    ```javascript
-    var node = document.getElementById('my-node');
+```javascript
+var node = document.getElementById('my-node');
 
-    domtoimage
-        .toPng(node)
-        .then(function (dataUrl) {
-            var img = new Image();
-            img.src = dataUrl;
-            document.body.appendChild(img);
-        })
-        .catch(function (error) {
-            console.error('oops, something went wrong!', error);
-        });
-    ```
+domtoimage
+    .toPng(node)
+    .then(function (dataUrl) {
+        var img = new Image();
+        img.src = dataUrl;
+        document.body.appendChild(img);
+    })
+    .catch(function (error) {
+        console.error('oops, something went wrong!', error);
+    });
+```
 
 Get a PNG image blob and download it (using
 [FileSaver](https://github.com/eligrey/FileSaver.js/), for example):
 
-    ```javascript
-    domtoimage.toBlob(document.getElementById('my-node')).then(function (blob) {
-        window.saveAs(blob, 'my-node.png');
-    });
-    ```
+```javascript
+domtoimage.toBlob(document.getElementById('my-node')).then(function (blob) {
+    window.saveAs(blob, 'my-node.png');
+});
+```
 
 Save and download a compressed JPEG image:
 
-    ```javascript
-    domtoimage
-        .toJpeg(document.getElementById('my-node'), { quality: 0.95 })
-        .then(function (dataUrl) {
-            var link = document.createElement('a');
-            link.download = 'my-image-name.jpeg';
-            link.href = dataUrl;
-            link.click();
-        });
-    ```
+```javascript
+domtoimage
+    .toJpeg(document.getElementById('my-node'), { quality: 0.95 })
+    .then(function (dataUrl) {
+        var link = document.createElement('a');
+        link.download = 'my-image-name.jpeg';
+        link.href = dataUrl;
+        link.click();
+    });
+```
 
 Get an SVG data URL, but filter out all the `<i>` elements:
 
-    ```javascript
-    function filter(node) {
-        return node.tagName !== 'i';
-    }
+```javascript
+function filter(node) {
+    return node.tagName !== 'i';
+}
 
-    domtoimage
-        .toSvg(document.getElementById('my-node'), { filter: filter })
-        .then(function (dataUrl) {
-            /* do something */
-        });
-    ```
+domtoimage
+    .toSvg(document.getElementById('my-node'), { filter: filter })
+    .then(function (dataUrl) {
+        /* do something */
+    });
+```
 
 Get the raw pixel data as a
 [Uint8Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array)
 with every 4 array elements representing the RGBA data of a pixel:
 
-    ```javascript
-    var node = document.getElementById('my-node');
+```javascript
+var node = document.getElementById('my-node');
 
-    domtoimage.toPixelData(node).then(function (pixels) {
-        for (var y = 0; y < node.scrollHeight; ++y) {
-            for (var x = 0; x < node.scrollWidth; ++x) {
-                pixelAtXYOffset = 4 * y * node.scrollHeight + 4 * x;
-                /* pixelAtXY is a Uint8Array[4] containing RGBA values of the pixel at (x, y) in the range 0..255 */
-                pixelAtXY = pixels.slice(pixelAtXYOffset, pixelAtXYOffset + 4);
-            }
+domtoimage.toPixelData(node).then(function (pixels) {
+    for (var y = 0; y < node.scrollHeight; ++y) {
+        for (var x = 0; x < node.scrollWidth; ++x) {
+            pixelAtXYOffset = 4 * y * node.scrollHeight + 4 * x;
+            /* pixelAtXY is a Uint8Array[4] containing RGBA values of the pixel at (x, y) in the range 0..255 */
+            pixelAtXY = pixels.slice(pixelAtXYOffset, pixelAtXYOffset + 4);
         }
-    });
-    ```
+    }
+});
+```
 
 Get a canvas object:
 
-    ```javascript
-    domtoimage.toCanvas(document.getElementById('my-node')).then(function (canvas) {
-        console.log('canvas', canvas.width, canvas.height);
-    });
-    ```
+```javascript
+domtoimage.toCanvas(document.getElementById('my-node')).then(function (canvas) {
+    console.log('canvas', canvas.width, canvas.height);
+});
+```
 
 Adjust cloned nodes before/after children are cloned
 [sample fiddle](https://jsfiddle.net/IDisposable/grLtjwe5/12/)
 
-    ```javascript
-    const adjustClone = (node, clone, after) => {
-        if (!after && clone.id === 'element') {
-            clone.style.transform = 'translateY(100px)';
-        }
-        return clone;
-    };
+```javascript
+const adjustClone = (node, clone, after) => {
+    if (!after && clone.id === 'element') {
+        clone.style.transform = 'translateY(100px)';
+    }
+    return clone;
+};
 
-    const wrapper = document.getElementById('wrapper');
-    const blob = domtoimage.toBlob(wrapper, { adjustClonedNode: adjustClone });
-    ```
+const wrapper = document.getElementById('wrapper');
+const blob = domtoimage.toBlob(wrapper, { adjustClonedNode: adjustClone });
+```
 
 ---
 
@@ -172,11 +172,11 @@ should be included in the output
 
 Sample use:
 
-    ```javascript
-      filterStyles(node, propertyName) {
-        return !propertyName.startssWith('--'); // to filter out CSS variables
-      }
-    ```
+```javascript
+filterStyles(node, propertyName) {
+    return !propertyName.startssWith('--'); // to filter out CSS variables
+}
+```
 
 #### adjustClonedNode
 
@@ -187,14 +187,14 @@ we've cloned the children already (so you can handle either before or after)
 
 Sample use:
 
-    ```javascript
-    const adjustClone = (node, clone, after) => {
-      if (!after && clone.id === 'element') {
-        clone.style.transform = 'translateY(100px)';
-      }
-      return clone;
+```javascript
+const adjustClone = (node, clone, after) => {
+    if (!after && clone.id === 'element') {
+    clone.style.transform = 'translateY(100px)';
     }
-    ```
+    return clone;
+}
+```
 
 const wrapper = document.getElementById('wrapper'); const blob =
 domtoimage.toBlob(wrapper, { adjustClonedNode: adjustClone});
@@ -371,17 +371,17 @@ taken:
 
 ## Using Typescript
 
-1.  Use original `dom-to-image` type definition
+1. Use original `dom-to-image` type definition
     `npm install @types/dom-to-image --save-dev`
 
-1.  Create dom-to-image-more type definition (`dom-to-image-more.d.ts`)
+1. Create dom-to-image-more type definition (`dom-to-image-more.d.ts`)
 
-        ```javascript
-        declare module 'dom-to-image-more' {
-         import domToImage = require('dom-to-image-more');
-         export = domToImage;
-        }
-        ```
+```javascript
+declare module 'dom-to-image-more' {
+    import domToImage = require('dom-to-image-more');
+    export = domToImage;
+}
+```
 
 ## Things to watch out for
 
