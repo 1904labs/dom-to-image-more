@@ -10,5 +10,5 @@
 
 ## Browsers
 
--   [ ] Chrome 49+
--   [ ] Firefox 45+
+- [ ] Chrome 49+
+- [ ] Firefox 45+

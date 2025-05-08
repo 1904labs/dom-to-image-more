@@ -788,7 +788,7 @@
             return new Promise(function (resolve, reject) {
                 // Create an SVG element to house the image
                 const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                
+
                 // and create the Image element to insert into that wrapper
                 const image = new Image();
 
@@ -811,7 +811,7 @@
                         resolve(image);
                     }
                 };
-                
+
                 image.onerror = (error) => {
                     // Cleanup: remove the image from the document
                     document.body.removeChild(svg);
@@ -821,7 +821,7 @@
 
                 svg.appendChild(image);
                 image.src = uri;
-                
+
                 // Add the SVG to the document body (invisible)
                 document.body.appendChild(svg);
             });
@@ -916,6 +916,7 @@
                     let placeholder;
                     if (domtoimage.impl.options.imagePlaceholder) {
                         const split = domtoimage.impl.options.imagePlaceholder.split(/,/);
+                        // NOSONAR
                         if (split && split[1]) {
                             placeholder = split[1];
                         }
@@ -1035,7 +1036,7 @@
     }
 
     function newInliner() {
-        const URL_REGEX = /url\(['"]?([^'"]+?)['"]?\)/g;
+        const URL_REGEX = /url\((["']?)((?:\\?.)*?)\1\)/gm;
 
         return {
             inlineAll: inlineAll,
@@ -1043,6 +1044,7 @@
             impl: {
                 readUrls: readUrls,
                 inline: inline,
+                urlAsRegex: urlAsRegex,
             },
         };
 
@@ -1054,11 +1056,15 @@
             const result = [];
             let match;
             while ((match = URL_REGEX.exec(string)) !== null) {
-                result.push(match[1]);
+                result.push(match[2]);
             }
             return result.filter(function (url) {
                 return !util.isDataUrl(url);
             });
+        }
+
+        function urlAsRegex(urlValue) {
+            return new RegExp(`url\\((["']?)(${util.escape(urlValue)})\\1\\)`, 'gm');
         }
 
         function inline(string, url, baseUrl, get) {
@@ -1068,15 +1074,9 @@
                 })
                 .then(get || util.getAndEncode)
                 .then(function (dataUrl) {
-                    return string.replace(urlAsRegex(url), `$1${dataUrl}$3`);
+                    const pattern = urlAsRegex(url);
+                    return string.replace(pattern, `url($1${dataUrl}$1)`);
                 });
-
-            function urlAsRegex(urlValue) {
-                return new RegExp(
-                    `(url\\(['"]?)(${util.escape(urlValue)})(['"]?\\))`,
-                    'g'
-                );
-            }
         }
 
         function inlineAll(string, baseUrl, get) {
@@ -1146,6 +1146,7 @@
                 const cssRules = [];
                 styleSheets.forEach(function (sheet) {
                     const sheetProto = Object.getPrototypeOf(sheet);
+                    // NOSONAR
                     if (Object.prototype.hasOwnProperty.call(sheetProto, 'cssRules')) {
                         try {
                             util.asArray(sheet.cssRules || []).forEach(
@@ -1165,6 +1166,7 @@
             function newWebFont(webFontRule) {
                 return {
                     resolve: function resolve() {
+                        // NOSONAR
                         const baseUrl = (webFontRule.parentStyleSheet || {}).href;
                         return inliner.inlineAll(webFontRule.cssText, baseUrl);
                     },
@@ -1506,6 +1508,7 @@
                 sandbox.setAttribute('srcdoc', sandboxHTML);
                 return sandbox.contentWindow;
             } catch (_) {
+                // NOSONAR
                 // swallow exception and fall through to the simplest path
             }
 

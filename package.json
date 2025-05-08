@@ -1,6 +1,6 @@
 {
     "name": "dom-to-image-more",
-    "version": "3.5.0",
+    "version": "3.6.0",
     "description": "Generates an image from a DOM node using HTML5 canvas and SVG",
     "main": "dist/dom-to-image-more.min.js",
     "devDependencies": {
@@ -20,8 +20,8 @@
         "karma-mocha": "^2.0.1",
         "karma-mocha-reporter": "^2.2.5",
         "mocha": "^10.7.3",
-        "prettier": "^3.3.3",
-        "semver": "^7.6.3"
+        "prettier": "^3.5.3",
+        "semver": "^7.7.1"
     },
     "scripts": {
         "format": "eslint src --fix && prettier --write .",
@@ -70,7 +70,9 @@
         "David Burns @davidburns573",
         "Yujia Cheng @YujiaCheng1996",
         "Julien Dorra @juliendorra",
-        "Sean Zhang @SeanZhang-eaton"
+        "Sean Zhang @SeanZhang-eaton",
+        "Ludovic Bouges @ludovic",
+        "Roland Ma @RolandMa1986"
     ],
     "license": "MIT",
     "bugs": {
