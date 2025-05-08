@@ -916,7 +916,8 @@
                     let placeholder;
                     if (domtoimage.impl.options.imagePlaceholder) {
                         const split = domtoimage.impl.options.imagePlaceholder.split(/,/);
-                        if (split?.[1]) {
+                        // NOSONAR
+                        if (split && split[1]) {
                             placeholder = split[1];
                         }
                     }
@@ -1145,6 +1146,7 @@
                 const cssRules = [];
                 styleSheets.forEach(function (sheet) {
                     const sheetProto = Object.getPrototypeOf(sheet);
+                    // NOSONAR
                     if (Object.prototype.hasOwnProperty.call(sheetProto, 'cssRules')) {
                         try {
                             util.asArray(sheet.cssRules || []).forEach(
@@ -1164,7 +1166,8 @@
             function newWebFont(webFontRule) {
                 return {
                     resolve: function resolve() {
-                        const baseUrl = webFontRule.parentStyleSheet?.href;
+                        // NOSONAR
+                        const baseUrl = (webFontRule.parentStyleSheet || {}).href;
                         return inliner.inlineAll(webFontRule.cssText, baseUrl);
                     },
                     src: function () {
