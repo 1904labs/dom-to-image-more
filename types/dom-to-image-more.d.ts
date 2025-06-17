@@ -1,3 +1,20 @@
+export interface Options {
+    filter: Function;
+    onclone: Function;
+    bgcolor: string;
+    width: number;
+    height: number;
+    style: any;
+    quality: number;
+    scale: number;
+    imagePlaceholder: string;
+    cacheBust: boolean;
+    styleCaching: string;
+    copyDefaultStyles: boolean;
+    disableEmbedFonts: boolean;
+    corsImg: any;
+}
+
 /**
  * @param {Node} node - The DOM Node object to render
  * @param {Object} options - Rendering options
@@ -27,52 +44,37 @@
  * @param {Function} options.filterStyles - Should return true if passed propertyName should be included in the output
  * @return {Promise} - A promise that is fulfilled with a SVG image data URL
  * */
-export function toSvg(node: Node, options: {
-    filter: Function;
-    onclone: Function;
-    bgcolor: string;
-    width: number;
-    height: number;
-    style: any;
-    quality: number;
-    scale: number;
-    imagePlaceholder: string;
-    cacheBust: boolean;
-    styleCaching: string;
-    copyDefaultStyles: boolean;
-    disableEmbedFonts: boolean;
-    corsImg: any;
-}): Promise<any>;
+export function toSvg(node: Node, options?: Options): Promise<any>;
 /**
  * @param {Node} node - The DOM Node object to render
  * @param {Object} options - Rendering options, @see {@link toSvg}
  * @return {Promise} - A promise that is fulfilled with a PNG image data URL
  * */
-export function toPng(node: Node, options: any): Promise<any>;
+export function toPng(node: Node, options?: Options): Promise<any>;
 /**
  * @param {Node} node - The DOM Node object to render
  * @param {Object} options - Rendering options, @see {@link toSvg}
  * @return {Promise} - A promise that is fulfilled with a JPEG image data URL
  * */
-export function toJpeg(node: Node, options: any): Promise<any>;
+export function toJpeg(node: Node, options?: Options): Promise<any>;
 /**
  * @param {Node} node - The DOM Node object to render
  * @param {Object} options - Rendering options, @see {@link toSvg}
  * @return {Promise} - A promise that is fulfilled with a PNG image blob
  * */
-export function toBlob(node: Node, options: any): Promise<any>;
+export function toBlob(node: Node, options?: Options): Promise<any>;
 /**
  * @param {Node} node - The DOM Node object to render
  * @param {Object} options - Rendering options, @see {@link toSvg}
  * @return {Promise} - A promise that is fulfilled with a Uint8Array containing RGBA pixel data.
  * */
-export function toPixelData(node: Node, options: any): Promise<any>;
+export function toPixelData(node: Node, options?: Options): Promise<any>;
 /**
  * @param {Node} node - The DOM Node object to render
  * @param {Object} options - Rendering options, @see {@link toSvg}
  * @return {Promise} - A promise that is fulfilled with a canvas object
  * */
-export function toCanvas(node: Node, options: any): Promise<any>;
+export function toCanvas(node: Node, options?: Options): Promise<any>;
 declare namespace fontFaces {
     export { resolveAll };
     export namespace impl_1 {
