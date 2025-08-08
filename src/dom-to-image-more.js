@@ -1036,7 +1036,7 @@
     }
 
     function newInliner() {
-        const URL_REGEX = /url\((["']?)((?:\\?.)*?)\1\)/gm;
+        const URL_REGEX = /url\(\s*(["']?)((?:\\.|[^\\)])+)\1\s*\)/gm;
 
         return {
             inlineAll: inlineAll,
