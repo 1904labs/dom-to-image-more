@@ -1012,6 +1012,102 @@
                     .then(done)
                     .catch(done);
             });
+
+            it('should handle HTTP status 0 (network error) with placeholder', function (done) {
+                const placeholder = 'data:image/png;base64,PLACEHOLDER';
+                const originalPlaceholder = domtoimage.impl.options.imagePlaceholder;
+                domtoimage.impl.options.imagePlaceholder = placeholder;
+                
+                // Mock XMLHttpRequest to simulate status 0
+                const originalXHR = global.XMLHttpRequest;
+                global.XMLHttpRequest = function() {
+                    const mockXHR = {
+                        readyState: 0,
+                        status: 0,
+                        response: null,
+                        onreadystatechange: null,
+                        ontimeout: null,
+                        responseType: '',
+                        timeout: 0,
+                        withCredentials: false,
+                        open: function() {},
+                        send: function() {
+                            // Simulate the request completing with status 0
+                            setTimeout(() => {
+                                mockXHR.readyState = 4;
+                                mockXHR.status = 0;
+                                if (mockXHR.onreadystatechange) {
+                                    mockXHR.onreadystatechange();
+                                }
+                            }, 10);
+                        },
+                        setRequestHeader: function() {}
+                    };
+                    return mockXHR;
+                };
+
+                domtoimage.impl.util
+                    .getAndEncode('http://example.com/test-image-with-placeholder.png')
+                    .then(function (resource) {
+                        const placeholderData = placeholder.split(/,/)[1];
+                        assert.equal(resource, placeholderData);
+                    })
+                    .then(function() {
+                        // Restore original XMLHttpRequest and placeholder
+                        global.XMLHttpRequest = originalXHR;
+                        domtoimage.impl.options.imagePlaceholder = originalPlaceholder;
+                    })
+                    .then(done)
+                    .catch(done);
+            });
+
+            it('should handle HTTP status 0 (network error) without placeholder', function (done) {
+                const originalPlaceholder = domtoimage.impl.options.imagePlaceholder;
+                domtoimage.impl.options.imagePlaceholder = undefined;
+                
+                // Mock XMLHttpRequest to simulate status 0
+                const originalXHR = global.XMLHttpRequest;
+                global.XMLHttpRequest = function() {
+                    const mockXHR = {
+                        readyState: 0,
+                        status: 0,
+                        response: null,
+                        onreadystatechange: null,
+                        ontimeout: null,
+                        responseType: '',
+                        timeout: 0,
+                        withCredentials: false,
+                        open: function() {},
+                        send: function() {
+                            // Simulate the request completing with status 0
+                            setTimeout(() => {
+                                mockXHR.readyState = 4;
+                                mockXHR.status = 0;
+                                if (mockXHR.onreadystatechange) {
+                                    mockXHR.onreadystatechange();
+                                }
+                            }, 10);
+                        },
+                        setRequestHeader: function() {}
+                    };
+                    return mockXHR;
+                };
+
+                domtoimage.impl.util
+                    .getAndEncode('http://example.com/test-image-without-placeholder.png')
+                    .then(function (resource) {
+                        // Should return empty string when status is 0 and no placeholder
+                        assert.equal(resource, '');
+                    })
+                    .then(function() {
+                        // Restore original XMLHttpRequest and placeholder
+                        global.XMLHttpRequest = originalXHR;
+                        domtoimage.impl.options.imagePlaceholder = originalPlaceholder;
+                    })
+                    .then(done)
+                    .catch(done);
+            });
+
         });
 
         describe('styles', function () {

@@ -927,7 +927,7 @@
                             return;
                         }
 
-                        if (request.status >= 300) {
+                        if (request.status >= 300 || request.status === 0) {
                             if (placeholder) {
                                 resolve(placeholder);
                             } else {
