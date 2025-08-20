@@ -173,11 +173,11 @@
             });
         }
 
-        function makeSvgDataUri(node) {
-            let width = options.width || util.width(node);
-            let height = options.height || util.height(node);
+        function makeSvgDataUri(clone) {
+            const width = options.width || util.width(node);
+            const height = options.height || util.height(node);
 
-            return Promise.resolve(node)
+            return Promise.resolve(clone)
                 .then(function (svg) {
                     svg.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
                     return new XMLSerializer().serializeToString(svg);
