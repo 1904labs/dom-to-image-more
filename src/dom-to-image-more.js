@@ -464,9 +464,27 @@
                 .then(clonePseudoElements)
                 .then(copyUserInput)
                 .then(fixSvg)
+                .then(fixResponsiveImages)
                 .then(function () {
                     return clone;
                 });
+
+            function fixResponsiveImages() {
+                if (util.isHTMLImageElement(clone))
+                {
+                    // Remove lazy-loading and responsive attributes
+                    clone.removeAttribute('loading');
+
+                    // If the original had srcset or sizes, set src to the resolved image
+                    if (original.srcset || original.sizes) {
+                        clone.removeAttribute('srcset');
+                        clone.removeAttribute('sizes');
+
+                        // Use currentSrc if available, otherwise fallback to src
+                        clone.src = original.currentSrc || original.src;
+                    }
+                }
+            }
 
             function cloneStyle() {
                 copyStyle(original, clone);
