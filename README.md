@@ -14,10 +14,13 @@ dom-to-image-more. As browsers have matured, many of the hacks we're accumulated
 years are not needed, or better ways have been found to handle some edge-cases. With the
 help of folks like @meche-gh, in #99 we're stripping out the following members:
 
-- `.mimes` - was the not-very-comprehensive list of mime types used to handle inlining things
-- `.parseExtension` - was a method to extract the extension from a filename, used to guess mime types
+- `.mimes` - was the not-very-comprehensive list of mime types used to handle inlining
+  things
+- `.parseExtension` - was a method to extract the extension from a filename, used to guess
+  mime types
 - `.mimeType` - was a method to map file extensions to mime types
-- `.dataAsUrl` - was a method to reassemble a `data:` URI from a Base64 representation and mime type
+- `.dataAsUrl` - was a method to reassemble a `data:` URI from a Base64 representation and
+  mime type
 
 The 3.x release branch should also fix more node compatibility and `iframe` issues.
 
@@ -190,10 +193,10 @@ Sample use:
 ```javascript
 const adjustClone = (node, clone, after) => {
     if (!after && clone.id === 'element') {
-    clone.style.transform = 'translateY(100px)';
+        clone.style.transform = 'translateY(100px)';
     }
     return clone;
-}
+};
 ```
 
 const wrapper = document.getElementById('wrapper'); const blob =
@@ -245,6 +248,13 @@ Defaults to undefined and will throw an error on failed images
 Set to true to enable the copying of the default styles of elements. This will make the
 process faster. Try disabling it if seeing extra padding and using resetting / normalizing
 in CSS. Defaults to true.
+
+#### disableInlineImages
+
+Set to true to disable the normal inlining images into the SVG output. This will generate
+SVGs that reference the original image files, so they my break if a referenced URL fails.
+This is always safe to use when generating a PNG/JPG file because the entire SVG image is
+rendered.
 
 #### useCredentialFeatures
 
@@ -338,12 +348,10 @@ taken:
 1. Clone the original DOM node recursively
 
 1. Compute the style for the node and each sub-node and copy it to corresponding clone
-
     - and don't forget to recreate pseudo-elements, as they are not cloned in any way, of
       course
 
 1. Embed web fonts
-
     - find all the `@font-face` declarations that might represent web fonts
 
     - parse file URLs, download corresponding files
@@ -354,7 +362,6 @@ taken:
       then attach it to the clone
 
 1. Embed images
-
     - embed image URLs in `<img>` elements
 
     - inline images used in `background` CSS property, in a fashion similar to fonts
@@ -372,7 +379,7 @@ taken:
 ## Using Typescript
 
 1. Use original `dom-to-image` type definition
-    `npm install @types/dom-to-image --save-dev`
+   `npm install @types/dom-to-image --save-dev`
 
 1. Create dom-to-image-more type definition (`dom-to-image-more.d.ts`)
 
@@ -405,7 +412,7 @@ DOLCIMASCOLO (packaging), Zee (ZM) @zm-cttae (many major updates), Joshua Walsh
 (shadow slot fix), David Burns @davidburns573 and Yujia Cheng @YujiaCheng1996 (font copy
 optional), Julien Dorra @juliendorra (documentation), Sean Zhang @SeanZhang-eaton (regex
 fixes), Ludovic Bouges @ludovic (style property filter), Roland Ma @RolandMa1986 (URL
-regex)"
+regex)", Kasim Tan @kasimtan
 
 ## License
 

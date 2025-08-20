@@ -7,6 +7,7 @@
     const Promise = global.Promise;
     const Tesseract = global.Tesseract;
     const BASE_URL = '/base/spec/resources/';
+    const validPlaceholder = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAMSURBVBhXY7h79y4ABTICmGnXPbMAAAAASUVORK5CYII=';
 
     describe('domtoimage', function () {
         afterEach(purgePage);
@@ -319,6 +320,19 @@
                     .then(renderToPng)
                     .then(drawDataUrl)
                     .then(assertTextRendered(['PNG', 'JPG']))
+                    .then(done)
+                    .catch(done);
+            });
+
+            it('should render active image in srcset', function (done) {
+                this.timeout(30000);
+                loadTestPage(
+                    'srcset/dom-node.html',
+                    'srcset/style.css',
+                    'srcset/control-image'
+                )
+                    .then(renderToPng)
+                    .then(check)
                     .then(done)
                     .catch(done);
             });
@@ -898,7 +912,7 @@
 
             it('should return empty result if cannot get resource', function (done) {
                 domtoimage.impl.util
-                    .getAndEncode(`${BASE_URL}util/not-found`)
+                    .getAndEncode(`${BASE_URL}util/not-found?should-be=empty`)
                     .then(function (resource) {
                         assert.equal(resource, '');
                     })
@@ -907,16 +921,12 @@
             });
 
             it('should return placeholder result if cannot get resource and placeholder is provided', function (done) {
-                const placeholder =
-                    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAMSURBVBhXY7h79y4ABTICmGnXPbMAAAAASUVORK5CYII=';
-                const original = domtoimage.impl.options.imagePlaceholder;
-                domtoimage.impl.options.imagePlaceholder = placeholder;
+                domtoimage.impl.copyOptions({}); // since we're bypassing the normal options flow
+                domtoimage.impl.options.imagePlaceholder = validPlaceholder;
                 domtoimage.impl.util
-                    .getAndEncode(`${BASE_URL}util/image-not-found`)
+                    .getAndEncode(`${BASE_URL}util/not-found?should-be=placeholder`)
                     .then(function (resource) {
-                        const placeholderData = placeholder.split(/,/)[1];
-                        assert.equal(resource, placeholderData);
-                        domtoimage.impl.options.imagePlaceholder = original;
+                        assert.equal(resource, validPlaceholder);
                     })
                     .then(done)
                     .catch(done);
@@ -1014,104 +1024,151 @@
             });
 
             it('should handle HTTP status 0 (network error) with placeholder', function (done) {
-                const placeholder = 'data:image/png;base64,PLACEHOLDER';
-                const originalPlaceholder = domtoimage.impl.options.imagePlaceholder;
-                domtoimage.impl.options.imagePlaceholder = placeholder;
-                
-                // Mock XMLHttpRequest to simulate status 0
                 const originalXHR = global.XMLHttpRequest;
-                global.XMLHttpRequest = function() {
-                    const mockXHR = {
-                        readyState: 0,
-                        status: 0,
-                        response: null,
-                        onreadystatechange: null,
-                        ontimeout: null,
-                        responseType: '',
-                        timeout: 0,
-                        withCredentials: false,
-                        open: function() {},
-                        send: function() {
-                            // Simulate the request completing with status 0
-                            setTimeout(() => {
-                                mockXHR.readyState = 4;
-                                mockXHR.status = 0;
-                                if (mockXHR.onreadystatechange) {
-                                    mockXHR.onreadystatechange();
-                                }
-                            }, 10);
-                        },
-                        setRequestHeader: function() {}
-                    };
-                    return mockXHR;
-                };
+                try {
+                    domtoimage.impl.copyOptions({}); // since we're bypassing the normal options flow
+                    domtoimage.impl.options.imagePlaceholder = validPlaceholder;
 
-                domtoimage.impl.util
-                    .getAndEncode('http://example.com/test-image-with-placeholder.png')
-                    .then(function (resource) {
-                        const placeholderData = placeholder.split(/,/)[1];
-                        assert.equal(resource, placeholderData);
-                    })
-                    .then(function() {
-                        // Restore original XMLHttpRequest and placeholder
-                        global.XMLHttpRequest = originalXHR;
-                        domtoimage.impl.options.imagePlaceholder = originalPlaceholder;
-                    })
-                    .then(done)
-                    .catch(done);
+                    // Mock XMLHttpRequest to simulate status 0
+                    global.XMLHttpRequest = function() {
+                        const mockXHR = {
+                            readyState: XMLHttpRequest.UNSENT,
+                            status: 0,
+                            response: null,
+                            onloadend: null,
+                            onerror: null,
+                            ontimeout: null,
+                            responseType: '',
+                            timeout: 0,
+                            withCredentials: false,
+                            open: function() {},
+                            send: function() {
+                                // Simulate the request completing with status 0
+                                setTimeout(() => {
+                                    mockXHR.readyState = XMLHttpRequest.DONE;
+                                    mockXHR.status = 0;
+                                    if (mockXHR.onloadend) {
+                                        mockXHR.onloadend();
+                                    }
+                                }, 10);
+                            },
+                            setRequestHeader: function() {}
+                        };
+                        return mockXHR;
+                    };
+
+                    domtoimage.impl.util
+                        .getAndEncode('http://example.com/test-image-with-placeholder.png')
+                        .then(function (resource) {
+                            assert.equal(resource, validPlaceholder);
+                        })
+                        .then(done)
+                        .catch(done);
+                }
+                finally {
+                    global.XMLHttpRequest = originalXHR;
+                }
             });
 
             it('should handle HTTP status 0 (network error) without placeholder', function (done) {
-                const originalPlaceholder = domtoimage.impl.options.imagePlaceholder;
-                domtoimage.impl.options.imagePlaceholder = undefined;
-                
-                // Mock XMLHttpRequest to simulate status 0
                 const originalXHR = global.XMLHttpRequest;
-                global.XMLHttpRequest = function() {
-                    const mockXHR = {
-                        readyState: 0,
-                        status: 0,
-                        response: null,
-                        onreadystatechange: null,
-                        ontimeout: null,
-                        responseType: '',
-                        timeout: 0,
-                        withCredentials: false,
-                        open: function() {},
-                        send: function() {
-                            // Simulate the request completing with status 0
-                            setTimeout(() => {
-                                mockXHR.readyState = 4;
-                                mockXHR.status = 0;
-                                if (mockXHR.onreadystatechange) {
-                                    mockXHR.onreadystatechange();
-                                }
-                            }, 10);
-                        },
-                        setRequestHeader: function() {}
+                try {
+                    domtoimage.impl.copyOptions({}); // since we're bypassing the normal options flow
+                    domtoimage.impl.options.imagePlaceholder = undefined;
+                    
+                    // Mock XMLHttpRequest to simulate status 0
+                    global.XMLHttpRequest = function() {
+                        const mockXHR = {
+                            readyState:  XMLHttpRequest.UNSENT,
+                            status: 0,
+                            response: null,
+                            onloadend: null,
+                            ontimeout: null,
+                            responseType: '',
+                            timeout: 0,
+                            withCredentials: false,
+                            open: function() {},
+                            send: function() {
+                                // Simulate the request completing with status 0
+                                setTimeout(() => {
+                                    mockXHR.readyState = XMLHttpRequest.DONE;
+                                    mockXHR.status = 0;
+                                    if (mockXHR.onloadend) {
+                                        mockXHR.onloadend();
+                                    }
+                                }, 10);
+                            },
+                            setRequestHeader: function() {}
+                        };
+                        return mockXHR;
                     };
-                    return mockXHR;
-                };
 
-                domtoimage.impl.util
-                    .getAndEncode('http://example.com/test-image-without-placeholder.png')
-                    .then(function (resource) {
-                        // Should return empty string when status is 0 and no placeholder
-                        assert.equal(resource, '');
-                    })
-                    .then(function() {
-                        // Restore original XMLHttpRequest and placeholder
-                        global.XMLHttpRequest = originalXHR;
-                        domtoimage.impl.options.imagePlaceholder = originalPlaceholder;
-                    })
-                    .then(done)
-                    .catch(done);
+                    domtoimage.impl.util
+                        .getAndEncode('http://example.com/test-image-without-placeholder.png')
+                        .then(function (resource) {
+                            // Should return empty string when status is 0 and no placeholder
+                            assert.equal(resource, '');
+                        })
+                        .then(done)
+                        .catch(done);
+                }
+                finally {
+                    global.XMLHttpRequest = originalXHR;
+                }
             });
 
+            it('should not use placeholder when HTTP status 0 occurs with a local file', function (done) {
+                const originalXHR = global.XMLHttpRequest;
+                try {
+                    domtoimage.impl.copyOptions({}); // since we're bypassing the normal options flow
+                    domtoimage.impl.options.imagePlaceholder = validPlaceholder;
+
+                    // Mock XMLHttpRequest to simulate status 0
+                    global.XMLHttpRequest = function() {
+                        const mockXHR = {
+                            readyState:  XMLHttpRequest.UNSENT,
+                            status: 0,
+                            response: null,
+                            onloadend: null,
+                            ontimeout: null,
+                            responseType: '',
+                            timeout: 0,
+                            withCredentials: false,
+                            open: function() {},
+                            send: function() {
+                                // Simulate the request completing with status 0
+                                setTimeout(() => {
+                                    mockXHR.readyState = XMLHttpRequest.DONE;
+                                    mockXHR.status = 0;
+                                    mockXHR.response = testPNGBlob(); // Simulate a local file response
+                                    if (mockXHR.onloadend) {
+                                        mockXHR.onloadend();
+                                    }
+                                }, 10);
+                            },
+                            setRequestHeader: function() {}
+                        };
+                        return mockXHR;
+                    };
+
+                    domtoimage.impl.util
+                        .getAndEncode('file://test-image-no-placeholder.png')
+                        .then(function (resource) {
+                            // Should NOT return the placeholder since a zero status is expected for local files
+                            assert.notEqual(resource, validPlaceholder);
+                        })
+                        .then(done)
+                        .catch(done);
+                }
+                finally {
+                    global.XMLHttpRequest = originalXHR;
+                }
+            });
         });
 
         describe('styles', function () {
             it('should compute correct keys', function (done) {
+                this.timeout(30000);
                 let one = Promise.allSettled([
                     loadTestPage(
                         'padding/dom-node.html',
@@ -1267,6 +1324,19 @@
         function renderToSvg(_node, options) {
             /* jshint unused:false */
             return domtoimage.toSvg(domNode(), Object.assign({}, debugOptions, options));
+        }
+
+        function testPNGBlob() {
+            // create a PNG Blob (1x1 pixel with 0xaabbccff color)
+            const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8//8/AwAI/wH+9QAAAABJRU5ErkJggg==';
+            const byteCharacters = atob(pngBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'image/png' });
+            return blob;
         }
     });
 })(this);

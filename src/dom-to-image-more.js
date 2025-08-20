@@ -44,6 +44,7 @@
             inliner: inliner,
             urlCache: [],
             options: {},
+            copyOptions: copyOptions
         },
     };
 
@@ -85,6 +86,7 @@
      * @param {String} options.styleCaching - set to 'strict', 'relaxed' to select style caching rules
      * @param {Boolean} options.copyDefaultStyles - set to false to disable use of default styles of elements
      * @param {Boolean} options.disableEmbedFonts - set to true to disable font embedding into the SVG output.
+     * @param {Boolean} options.disableInlineImages - set to true to disable inlining images into the SVG output.
      * @param {Object} options.corsImg - When the image is restricted by the server from cross-domain requests, the proxy address is passed in to get the image
      *         - @param {String} url - eg: https://cors-anywhere.herokuapp.com/
      *         - @param {Enumerator} method - get, post
@@ -97,8 +99,8 @@
     function toSvg(node, options) {
         const ownerWindow = domtoimage.impl.util.getWindow(node);
         options = options || {};
-        copyOptions(options);
-        let restorations = [];
+        domtoimage.impl.copyOptions(options);
+        const restorations = [];
 
         return Promise.resolve(node)
             .then(ensureElement)
@@ -106,7 +108,7 @@
                 return cloneNode(clonee, options, null, ownerWindow);
             })
             .then(options.disableEmbedFonts ? Promise.resolve(node) : embedFonts)
-            .then(inlineImages)
+            .then(options.disableInlineImages ? Promise.resolve(node) : inlineImages)
             .then(applyOptions)
             .then(makeSvgDataUri)
             .then(restoreWrappers)
@@ -623,7 +625,6 @@
             resolveUrl: resolveUrl,
             getAndEncode: getAndEncode,
             uid: uid,
-            delay: delay,
             asArray: asArray,
             escapeXhtml: escapeXhtml,
             makeImage: makeImage,
@@ -842,19 +843,72 @@
 
             if (cacheEntry.promise === null) {
                 if (domtoimage.impl.options.cacheBust) {
-                    // Cache bypass so we dont have CORS issues with cached images
+                    // Cache bypass so we don't have CORS issues with cached images
                     // Source: https://developer.mozilla.org/en/docs/Web/API/XMLHttpRequest/Using_XMLHttpRequest#Bypassing_the_cache
                     url += (/\?/.test(url) ? '&' : '?') + new Date().getTime();
                 }
 
                 cacheEntry.promise = new Promise(function (resolve) {
-                    const httpTimeout = domtoimage.impl.options.httpTimeout;
-                    const request = new XMLHttpRequest();
+                    const xhr = new XMLHttpRequest();
+                    xhr.timeout = domtoimage.impl.options.httpTimeout;
+                    xhr.onerror = placehold;
+                    xhr.ontimeout = placehold;
+                    xhr.onloadend = function () {
+                        if (xhr.readyState === XMLHttpRequest.DONE) {
+                            const status = xhr.status;
+                            // In local files, status is 0 upon success in Mozilla Firefox
+                            if (
+                                (status === 0 && url.toLowerCase().startsWith('file://')) ||
+                                (status >= 200 && status <= 300 && xhr.response !== null)
+                            ) {
+                                const response = xhr.response;
+                                if (!(response instanceof Blob)) {
+                                    fail(
+                                        'Expected response to be a Blob, but got: ' +
+                                            typeof response
+                                    );
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = function () {
+                                    const result = reader.result;
+                                    resolve(result);
+                                };
+                                try {
+                                    reader.readAsDataURL(response);
+                                } catch (ex) {
+                                    fail(
+                                        'Failed to read the response as Data URL: ' +
+                                            ex.toString()
+                                    );
+                                }
+                            } else {
+                                placehold();
+                            }
+                        }
+                    };
 
-                    request.onreadystatechange = done;
-                    request.ontimeout = timeout;
-                    request.responseType = 'blob';
-                    request.timeout = httpTimeout;
+                    function fail(message) {
+                        console.error(message);
+                        resolve('');
+                    }
+
+                    function placehold() {
+                        const placeholder = domtoimage.impl.options.imagePlaceholder;
+
+                        if (placeholder) {
+                            resolve(placeholder);
+                        } else {
+                            fail('Status:' + xhr.status + ' while fetching resource: ' + url);
+                        }
+                    }
+
+                    function handleJson(data) {
+                        try {
+                            return JSON.parse(JSON.stringify(data));
+                        } catch (e) {
+                            fail('corsImg.data is missing or invalid:' + e.toString());
+                        }
+                    }
 
                     if (domtoimage.impl.options.useCredentialsFilters.length > 0) {
                         domtoimage.impl.options.useCredentials =
@@ -864,7 +918,7 @@
                     }
 
                     if (domtoimage.impl.options.useCredentials) {
-                        request.withCredentials = true;
+                        xhr.withCredentials = true;
                     }
 
                     if (
@@ -878,8 +932,7 @@
                             ).toUpperCase() === 'POST'
                                 ? 'POST'
                                 : 'GET';
-
-                        request.open(
+                        xhr.open(
                             method,
                             (domtoimage.impl.options.corsImg.url || '').replace(
                                 '#{cors}',
@@ -894,7 +947,7 @@
                             if (headers[key].indexOf('application/json') !== -1) {
                                 isJson = true;
                             }
-                            request.setRequestHeader(key, headers[key]);
+                            xhr.setRequestHeader(key, headers[key]);
                         });
 
                         const corsData = handleJson(
@@ -907,67 +960,12 @@
                             }
                         });
 
-                        request.send(isJson ? JSON.stringify(corsData) : corsData);
+                        xhr.responseType = 'blob';
+                        xhr.send(isJson ? JSON.stringify(corsData) : corsData);
                     } else {
-                        request.open('GET', url, true);
-                        request.send();
-                    }
-
-                    let placeholder;
-                    if (domtoimage.impl.options.imagePlaceholder) {
-                        const split = domtoimage.impl.options.imagePlaceholder.split(/,/);
-                        // NOSONAR
-                        if (split && split[1]) {
-                            placeholder = split[1];
-                        }
-                    }
-
-                    function done() {
-                        if (request.readyState !== 4) {
-                            return;
-                        }
-
-                        if (request.status >= 300 || request.status === 0) {
-                            if (placeholder) {
-                                resolve(placeholder);
-                            } else {
-                                fail(
-                                    `cannot fetch resource: ${url}, status: ${request.status}`
-                                );
-                            }
-
-                            return;
-                        }
-
-                        const encoder = new FileReader();
-                        encoder.onloadend = function () {
-                            resolve(encoder.result);
-                        };
-                        encoder.readAsDataURL(request.response);
-                    }
-
-                    function timeout() {
-                        if (placeholder) {
-                            resolve(placeholder);
-                        } else {
-                            fail(
-                                `timeout of ${httpTimeout}ms occured while fetching resource: ${url}`
-                            );
-                        }
-                    }
-
-                    function handleJson(data) {
-                        try {
-                            return JSON.parse(JSON.stringify(data));
-                        } catch (e) {
-                            fail('corsImg.data is missing or invalid:' + e.toString());
-                            return;
-                        }
-                    }
-
-                    function fail(message) {
-                        console.error(message);
-                        resolve('');
+                        xhr.open('GET', url, true);
+                        xhr.responseType = 'blob';
+                        xhr.send();
                     }
                 });
             }
@@ -976,16 +974,6 @@
 
         function escapeRegEx(string) {
             return string.replace(/([.*+?^${}()|[\]/\\])/g, '\\$1');
-        }
-
-        function delay(ms) {
-            return function (arg) {
-                return new Promise(function (resolve) {
-                    setTimeout(function () {
-                        resolve(arg);
-                    }, ms);
-                });
-            };
         }
 
         function asArray(arrayLike) {
@@ -1154,7 +1142,8 @@
                             );
                         } catch (e) {
                             console.error(
-                                `domtoimage: Error while reading CSS rules from ${sheet.href}`,
+                                'domtoimage: Error while reading CSS rules from: ' +
+                                    sheet.href,
                                 e.toString()
                             );
                         }

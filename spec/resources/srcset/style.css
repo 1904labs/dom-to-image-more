@@ -1,0 +1,21 @@
+#dom-node {
+    background-color: white;
+    width: 40em;
+}
+
+article {
+    margin: 1em;
+    max-width: 60em;
+    min-width: 20em;
+    border: 4em solid #880e4f;
+    border-radius: 7em;
+    padding: 1.5em;
+}
+
+article img {
+    display: block;
+    max-width: 100%;
+    border: 1px solid #888888;
+    box-shadow: 0 0.5em 0.3em #888888;
+    margin-bottom: 1.25em;
+}
